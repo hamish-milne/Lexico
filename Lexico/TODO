@@ -1,0 +1,29 @@
+☐ Trace
+    ✔ Implement @done(20-02-01 16:47)
+    ✔ GetParser: Named or unnamed, return Trace wrapper @done(20-02-01 16:47)
+    ☐ Log errors; optional fast path
+☐ Deferred Terminal value (from a Property)
+    ☐ Push the current object to Trace
+☐ Left recursion
+    ✔ Use Trace to log/stop 'direct left recursion' instances @done(20-02-01 16:47)
+      e.g. when in Add, for the *first* part of the Sequence, don't consider Add as an Expression
+    ☐ Use Trace to log/stop too many 'indirect left recursion' instances
+      e.g. count how many nested 'Add' expressions we can have without advancing. User specifies the number
+☐ EOF terminal
+    ☐ Allow implicit EOF for top-level (i.e. force the entire string to be parsed)
+☐ EOL terminal
+    ☐ Choose whether Whitespace includes EOLs
+☐ More number types
+    double, short, uint etc.
+☐ Terminal attributes
+    ☐ NumberStyles
+    ☐ RegexOptions
+☐ API fixes
+    ☐ Opt-in with ParseAttribute/TerminalAttribute; re-enable Properties
+    ☐ Make Buffer more opaque
+    ☐ Use 'NullableAttribute(2)' for Optional
+☐ Repeat min/max count?
+☐ Custom terminals
+☐ JSON implementation!!
+☐ Regex implementation!!
+☐ Perf test

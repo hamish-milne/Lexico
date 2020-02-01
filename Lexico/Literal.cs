@@ -20,7 +20,7 @@ namespace Lexico
             literal = attribute.Value;
         }
         private readonly string literal;
-        public bool Matches(ref Buffer buffer, ref object value)
+        public bool Matches(ref Buffer buffer, ref object value, ITrace trace)
         {
             for (int i = 0; i < literal.Length; i++, buffer.Position++) {
                 if (buffer.Peek(0) != literal[i]) {
@@ -30,5 +30,7 @@ namespace Lexico
             value = literal;
             return true;
         }
+
+        public override string ToString() => $"`{literal}`";
     }
 }

@@ -2,9 +2,11 @@ using System.Reflection;
 using System.Collections;
 using System;
 using System.Collections.Generic;
+using static System.AttributeTargets;
 
 namespace Lexico
 {
+    [AttributeUsage(Field | Property | Class | Struct, AllowMultiple = false)]
     public class SeparatedByAttribute : Attribute
     {
         public SeparatedByAttribute(Type separator) {
@@ -15,7 +17,7 @@ namespace Lexico
 
     internal class RepeatParser : IParser
     {
-        public RepeatParser(Type listType)
+        public RepeatParser(Type listType, IParser? separator)
         {
             this.listType = listType ?? throw new ArgumentNullException(nameof(listType));
             element = ParserCache.GetParser(listType.IsArray ? listType.GetElementType() : listType.GetGenericArguments()[0]);
@@ -23,16 +25,23 @@ namespace Lexico
                 addMethod = listType.GetMethod("Add")
                     ?? throw new ArgumentException($"{listType} does not implement IList and has no Add method");
             }
-            var sep = listType.GetCustomAttribute<SeparatedByAttribute>();
+            this.separator = separator;
+        }
+
+        public static RepeatParser Modify(RepeatParser parent, MemberInfo member)
+        {
+            var sep = member.GetCustomAttribute<SeparatedByAttribute>();
             if (sep != null) {
-                separator = ParserCache.GetParser(sep.Separator);
+                return new RepeatParser(parent.listType, ParserCache.GetParser(sep.Separator, "separator"));
+            } else {
+                return parent;
             }
         }
         private readonly Type listType;
         private readonly IParser element;
         private readonly MethodInfo addMethod;
         private readonly IParser? separator;
-        public bool Matches(ref Buffer buffer, ref object value)
+        public bool Matches(ref Buffer buffer, ref object value, ITrace trace)
         {
             if (listType.IsArray) {
                 value = new List<object>();
@@ -51,17 +60,18 @@ namespace Lexico
 
             list?.Clear();
             object evalue = null;
-            if (!element.Matches(ref buffer, ref evalue)) {
+            if (!element.Matches(ref buffer, ref evalue, trace)) {
                 return false;
             }
             AddItem(evalue);
             int lastSuccessPos = buffer.Position;
             do {
+                evalue = null;
                 object tmp = null;
-                if (separator?.Matches(ref buffer, ref tmp) == false) {
+                if (separator?.Matches(ref buffer, ref tmp, trace) == false) {
                     break;
                 }
-                if (!element.Matches(ref buffer, ref evalue)) {
+                if (!element.Matches(ref buffer, ref evalue, trace)) {
                     break;
                 }
                 AddItem(evalue);

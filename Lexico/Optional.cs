@@ -13,10 +13,10 @@ namespace Lexico
             this.child = child;
         }
         private readonly IParser child;
-        public bool Matches(ref Buffer buffer, ref object value)
+        public bool Matches(ref Buffer buffer, ref object value, ITrace trace)
         {
             var pos = buffer.Position;
-            if (child.Matches(ref buffer, ref value)) {
+            if (child.Matches(ref buffer, ref value, trace)) {
                 return true;
             } else {
                 buffer.Position = pos;
@@ -24,5 +24,7 @@ namespace Lexico
                 return true;
             }
         }
+
+        public override string ToString() => $"{child}?";
     }
 }

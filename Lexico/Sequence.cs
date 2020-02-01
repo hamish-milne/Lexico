@@ -23,11 +23,14 @@ namespace Lexico
             members = type.GetMembers(Instance | Public | NonPublic)
                 .Where(m => m is FieldInfo)
                 .Where(m => m.GetCustomAttribute<IgnoreAttribute>() == null)
-                .Select(m => (MemberType(m) == typeof(Unnamed) ? null : m, ParserCache.GetParser(m)))
+                .Select(m => MemberType(m) == typeof(Unnamed)
+                    ? (null, ParserCache.GetParser(m))
+                    : (m, ParserCache.GetParser(m, m.Name))
+                )
                 .ToArray();
             var sep = type.GetCustomAttribute<SeparatedByAttribute>();
             if (sep != null) {
-                separator = ParserCache.GetParser(sep.Separator);
+                separator = ParserCache.GetParser(sep.Separator, "separator");
             }
         }
 
@@ -35,33 +38,43 @@ namespace Lexico
         private readonly (MemberInfo? member, IParser parser)[] members;
         private readonly IParser? separator;
 
-        public bool Matches(ref Buffer buffer, ref object value)
+        public bool Matches(ref Buffer buffer, ref object value, ITrace trace)
         {
-            if (value == null) {
+            if (!type.IsInstanceOfType(value)) {
                 value = Activator.CreateInstance(type);
             }
             bool first = true;
             foreach (var (member, parser) in members) {
                 object tmp = null;
+                if (!first && separator?.Matches(ref buffer, ref tmp, trace) == false) {
+                    return false;
+                }
+                // TODO: Do this for 'surround' as well?
                 if (first) {
+                    trace.ILR.Push(this);
+                }
+                try
+                {
+                    if (member == null) {
+                        if (!parser.Matches(ref buffer, ref tmp, trace)) {
+                            return false;
+                        }
+                    } else {
+                        var oldvalue = GetMember(value, member);
+                        var newvalue = oldvalue;
+                        if (parser.Matches(ref buffer, ref newvalue, trace)) {
+                            if (member != null && newvalue != oldvalue) {
+                                SetMember(value, member, newvalue);
+                            }
+                        } else {
+                            return false;
+                        }
+                    }
+                } finally {
+                    if (first) {
+                        trace.ILR.Pop();
+                    }
                     first = false;
-                } else if (separator?.Matches(ref buffer, ref tmp) == false) {
-                    return false;
-                }
-                if (member == null) {
-                    if (!parser.Matches(ref buffer, ref tmp)) {
-                        return false;
-                    }
-                    continue;
-                }
-                var oldvalue = GetMember(value, member);
-                var newvalue = oldvalue;
-                if (parser.Matches(ref buffer, ref newvalue)) {
-                    if (member != null && newvalue != oldvalue) {
-                        SetMember(value, member, newvalue);
-                    }
-                } else {
-                    return false;
                 }
             }
             return true;
@@ -92,5 +105,7 @@ namespace Lexico
                 _ => throw new ArgumentException(),
             };
         }
+
+        public override string ToString() => type.FullName;
     }
 }

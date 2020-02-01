@@ -19,9 +19,9 @@ namespace Lexico
             regex = new Regex(attr.Pattern, RegexOptions.Compiled);
         }
         private readonly Regex regex;
-        public bool Matches(ref Buffer buffer, ref object value)
+        public bool Matches(ref Buffer buffer, ref object value, ITrace trace)
         {
-            var match = regex.Match(buffer.String, buffer.Position);
+            var match = regex.Match(buffer.String, buffer.Position, buffer.String.Length - buffer.Position);
             if (match.Success) {
                 value = match.Value;
                 buffer.Position += match.Value.Length;
@@ -29,5 +29,7 @@ namespace Lexico
             }
             return false;
         }
+
+        public override string ToString() => regex.ToString();
     }
 }

@@ -8,9 +8,12 @@ namespace Lexico
         {
             var buf = new Buffer(str);
             object value = null;
-            if (ParserCache.GetParser(typeof(T)).Matches(ref buf, ref value)) {
+            var trace = new Trace();
+            if (ParserCache.GetParser(typeof(T)).Matches(ref buf, ref value, trace)) {
+                Console.WriteLine(trace);
                 return (T)value;
             } else {
+                Console.WriteLine(trace);
                 throw new Exception("Parse failed");
             }
         }

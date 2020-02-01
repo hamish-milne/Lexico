@@ -9,7 +9,7 @@ namespace Lexico
         private static readonly object ws = new Whitespace();
         public static WhitespaceParser Instance { get; } = new WhitespaceParser();
 
-        public bool Matches(ref Buffer buffer, ref object value)
+        public bool Matches(ref Buffer buffer, ref object value, ITrace trace)
         {
             var c = buffer.Peek(0);
             if (c.HasValue && Char.IsWhiteSpace(c.Value)) {
@@ -25,5 +25,7 @@ namespace Lexico
                 return false;
             }
         }
+
+        public override string ToString() => "Whitespace";
     }
 }
