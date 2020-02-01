@@ -8,7 +8,7 @@ namespace Lexico.Test
         [Fact]
         public void Test1()
         {
-            var expr = Parser.Parse<Calculator.Expression>("5+(2+1)");
+            var expr = Parser.Parse<Calculator.Expression>("5+ (2 +1)");
             Assert.Equal(8.0, expr.Value);
         }
     }

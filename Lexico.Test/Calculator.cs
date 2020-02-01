@@ -7,6 +7,7 @@ namespace Calculator
         public abstract float Value { get; }
     }
 
+    [WhitespaceSeparated]
     public class Bracketed : Expression
     {
         [Literal("(")] Unnamed _;
@@ -16,6 +17,7 @@ namespace Calculator
         public override float Value => inner.Value;
     }
 
+    [WhitespaceSeparated]
     public class Add : Expression
     {
         Expression lhs;

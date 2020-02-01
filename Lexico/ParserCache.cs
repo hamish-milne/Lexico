@@ -58,13 +58,16 @@ namespace Lexico
                         return WhitespaceParser.Instance;
                     }
                     if (type == typeof(float)) {
-                        return new NumberParser();
+                        return FloatParser.Instance;
+                    }
+                    if (type == typeof(int)) {
+                        return IntParser.Instance;
                     }
                     if (type.IsPrimitive) {
                         throw new NotImplementedException($"{type} not supported yet");
                     }
                     if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>)) {
-                        return new OptionalParser(new SequenceParser(type.GetGenericArguments()[0]));
+                        return new OptionalParser(GetParser(type.GetGenericArguments()[0]));
                     }
                     // TODO: What about normal classes that are ICollections? Maybe a way to override?
                     if (typeof(ICollection).IsAssignableFrom(type)) {

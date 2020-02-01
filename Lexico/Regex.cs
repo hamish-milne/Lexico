@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using System;
+
 namespace Lexico
 {
     public class RegexAttribute : TerminalAttribute

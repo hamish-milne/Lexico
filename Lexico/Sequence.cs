@@ -5,10 +5,14 @@ using static System.Reflection.BindingFlags;
 
 namespace Lexico
 {
-    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class IgnoreAttribute : Attribute
     {
+    }
 
+    public class WhitespaceSeparatedAttribute : SeparatedByAttribute
+    {
+        public WhitespaceSeparatedAttribute() : base(typeof(Whitespace?)) {}
     }
 
     internal class SequenceParser : IParser
@@ -21,19 +25,30 @@ namespace Lexico
                 .Where(m => m.GetCustomAttribute<IgnoreAttribute>() == null)
                 .Select(m => (MemberType(m) == typeof(Unnamed) ? null : m, ParserCache.GetParser(m)))
                 .ToArray();
+            var sep = type.GetCustomAttribute<SeparatedByAttribute>();
+            if (sep != null) {
+                separator = ParserCache.GetParser(sep.Separator);
+            }
         }
 
         private readonly Type type;
         private readonly (MemberInfo? member, IParser parser)[] members;
+        private readonly IParser? separator;
 
         public bool Matches(ref Buffer buffer, ref object value)
         {
             if (value == null) {
                 value = Activator.CreateInstance(type);
             }
+            bool first = true;
             foreach (var (member, parser) in members) {
+                object tmp = null;
+                if (first) {
+                    first = false;
+                } else if (separator?.Matches(ref buffer, ref tmp) == false) {
+                    return false;
+                }
                 if (member == null) {
-                    object tmp = null;
                     if (!parser.Matches(ref buffer, ref tmp)) {
                         return false;
                     }

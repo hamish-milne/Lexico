@@ -21,7 +21,7 @@ namespace Lexico
             } else {
                 buffer.Position = pos;
                 value = null;
-                return false;
+                return true;
             }
         }
     }
