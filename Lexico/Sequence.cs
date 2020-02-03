@@ -1,5 +1,6 @@
 using System.Linq;
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using static System.Reflection.BindingFlags;
 
@@ -20,15 +21,25 @@ namespace Lexico
         public SequenceParser(Type type)
         {
             this.type = type ?? throw new ArgumentNullException(nameof(type));
-            // TODO: Also get private base class members?
-            members = type.GetMembers(Instance | Public | NonPublic)
-                .Where(m => m is FieldInfo)
-                .Where(m => m.GetCustomAttribute<IgnoreAttribute>(true) == null)
-                .Select(m => MemberType(m) == typeof(Unnamed)
-                    ? (null, ParserCache.GetParser(m))
-                    : (m, ParserCache.GetParser(m, m.Name))
-                )
-                .ToArray();
+            var typeHierachy = new List<Type>();
+            var current = type;
+            while (current != null && current != typeof(object))
+            {
+                typeHierachy.Add(current);
+                current = current.BaseType;
+            }
+
+            typeHierachy.Reverse();
+
+            members = typeHierachy.SelectMany(t =>
+                t.GetMembers(Instance | Public | NonPublic)
+                    .Where(m => m is FieldInfo)
+                    .Where(m => m.GetCustomAttribute<IgnoreAttribute>(true) == null)
+                    .Select(m => MemberType(m) == typeof(Unnamed)
+                        ? (null, ParserCache.GetParser(m))
+                        : (m, ParserCache.GetParser(m, m.Name))
+                    )
+            ).ToArray();
             var sep = type.GetCustomAttribute<SeparatedByAttribute>(true);
             if (sep != null) {
                 separator = ParserCache.GetParser(sep.Separator, "separator");

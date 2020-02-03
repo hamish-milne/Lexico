@@ -26,7 +26,8 @@ namespace Lexico
     {
         public static FloatParser Instance { get; } = new FloatParser();
         // TODO: NumberStyles, hex, negative, etc.
-        private FloatParser() : base(@"([0-9]*\.)?[0-9]+(e[\-\+]?[0-9]+)?") {}
+        private FloatParser() : base(@"(?>[\-\+]?[0-9]*\.)?[0-9]+(?>[eE][\-\+]?[0-9]+)?") {}
+
         protected override object Parse(string str) => float.Parse(str, NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent);
         public override string ToString() => "float";
     }
