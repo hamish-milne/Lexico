@@ -82,7 +82,7 @@ namespace Lexico
     {
         public static IParser GetInner(this IParser parser)
         {
-            while (parser is IUnaryParser up) {
+            while (parser is IUnaryParser up && up.Inner != null) {
                 parser = up.Inner;
             }
             return parser;
@@ -93,6 +93,7 @@ namespace Lexico
     {
         public TraceWrapper(IParser inner, string? name = null) {
             Inner = inner ?? throw new ArgumentNullException(nameof(inner));
+            Inner = Inner.GetInner();
             this.name = name;
         }
         public IParser Inner { get; }
@@ -106,6 +107,6 @@ namespace Lexico
             return result;
         }
 
-        public override string ToString() => "";
+        public override string ToString() => Inner.ToString();
     }
 }

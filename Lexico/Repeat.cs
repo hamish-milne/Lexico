@@ -30,7 +30,7 @@ namespace Lexico
 
         public static RepeatParser Modify(RepeatParser parent, MemberInfo member)
         {
-            var sep = member.GetCustomAttribute<SeparatedByAttribute>();
+            var sep = member.GetCustomAttribute<SeparatedByAttribute>(true);
             if (sep != null) {
                 return new RepeatParser(parent.listType, ParserCache.GetParser(sep.Separator, "separator"));
             } else {

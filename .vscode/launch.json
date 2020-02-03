@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/Lexico.Test/bin/Debug/netcoreapp3.1/Lexico.Test.dll",
+            "program": "${workspaceFolder}/Lexico.Test/bin/Debug/netcoreapp3.0/Lexico.Test.dll",
             "args": [],
             "cwd": "${workspaceFolder}/Lexico.Test",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console

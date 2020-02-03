@@ -22,7 +22,7 @@ namespace Lexico
     {
         public SurroundParser(IParser inner, SurroundByAttribute attribute)
         {
-            surround = ParserCache.GetParser(attribute.Surround);
+            surround = ParserCache.GetParser(attribute.Surround, "<surround>");
             this.inner = inner ?? throw new ArgumentNullException(nameof(inner));
         }
 
@@ -36,5 +36,7 @@ namespace Lexico
                 && inner.Matches(ref buffer, ref value, trace)
                 && surround.Matches(ref buffer, ref tmp, trace);
         }
+
+        public override string ToString() => $"|{inner}|";
     }
 }

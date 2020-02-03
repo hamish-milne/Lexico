@@ -15,6 +15,7 @@ namespace Lexico
                 throw new InvalidOperationException("Already set");
             }
             Inner = inner ?? throw new ArgumentNullException(nameof(inner));
+            Inner = inner.GetInner();
         }
 
         public bool Matches(ref Buffer buffer, ref object value, ITrace trace)
@@ -25,7 +26,7 @@ namespace Lexico
             return Inner.Matches(ref buffer, ref value, trace);
         }
 
-        public override string ToString() => "";
+        public override string ToString() => Inner?.ToString() ?? "UNSET";
     }
     internal class ParserCache
     {
@@ -43,7 +44,7 @@ namespace Lexico
                         cache[member] = parser;
                     }
                 }
-                if (name == null && !(parser is TraceWrapper)) {
+                if (name == null) {
                     lock (wrappers) {
                         if (!wrappers.TryGetValue(parser, out var tw)) {
                             tw = new TraceWrapper(parser);
@@ -106,11 +107,12 @@ namespace Lexico
 
         static IParser? GetTerminal(MemberInfo member)
         {
-            var attr = member.GetCustomAttribute<TerminalAttribute>();
+            var attr = member.GetCustomAttribute<TerminalAttribute>(true);
             return attr switch
             {
                 null => null,
-                LiteralAttribute lit => new LiteralParser(lit),
+                LiteralAttribute lit => lit.Create(),
+                IndirectLiteralAttribute ilit => ilit.Create(member),
                 RegexAttribute regex => new RegexParser(regex),
                 _ => throw new NotSupportedException($"{attr} unimplemented")
             };
@@ -121,7 +123,7 @@ namespace Lexico
             if (parent.GetInner() is RepeatParser repeat) {
                 parent = RepeatParser.Modify(repeat, member);
             }
-            var attrs = member.GetCustomAttributes().ToArray();
+            var attrs = member.GetCustomAttributes(true).ToArray();
             // TODO: Check compiler-generated NullableAttribute (for reference types)
             foreach (var attr in attrs)
             {

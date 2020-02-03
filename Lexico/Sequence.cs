@@ -20,15 +20,16 @@ namespace Lexico
         public SequenceParser(Type type)
         {
             this.type = type ?? throw new ArgumentNullException(nameof(type));
+            // TODO: Also get private base class members?
             members = type.GetMembers(Instance | Public | NonPublic)
                 .Where(m => m is FieldInfo)
-                .Where(m => m.GetCustomAttribute<IgnoreAttribute>() == null)
+                .Where(m => m.GetCustomAttribute<IgnoreAttribute>(true) == null)
                 .Select(m => MemberType(m) == typeof(Unnamed)
                     ? (null, ParserCache.GetParser(m))
                     : (m, ParserCache.GetParser(m, m.Name))
                 )
                 .ToArray();
-            var sep = type.GetCustomAttribute<SeparatedByAttribute>();
+            var sep = type.GetCustomAttribute<SeparatedByAttribute>(true);
             if (sep != null) {
                 separator = ParserCache.GetParser(sep.Separator, "separator");
             }
@@ -44,6 +45,7 @@ namespace Lexico
                 value = Activator.CreateInstance(type);
             }
             bool first = true;
+            var prevIlrCount = trace.ILR.Count();
             foreach (var (member, parser) in members) {
                 object tmp = null;
                 if (!first && separator?.Matches(ref buffer, ref tmp, trace) == false) {
@@ -72,7 +74,9 @@ namespace Lexico
                     }
                 } finally {
                     if (first) {
-                        trace.ILR.Pop();
+                        while (trace.ILR.Count > prevIlrCount) {
+                            trace.ILR.Pop();
+                        }
                     }
                     first = false;
                 }

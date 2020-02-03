@@ -28,7 +28,8 @@ namespace Lexico
             var prevPos = buffer.Position;
             foreach (var option in options)
             {
-                if (trace.ILR.Count > 0 && trace.ILR.Peek() == option.GetInner()) {
+                // TODO: A faster stack impl for this
+                if (trace.ILR.Contains(option.GetInner())) {
                     continue;
                 }
                 buffer.Position = prevPos;
