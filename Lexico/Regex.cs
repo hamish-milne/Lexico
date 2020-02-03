@@ -16,7 +16,7 @@ namespace Lexico
     {
         // TODO: Case-insensitive etc.?
         public RegexParser(RegexAttribute attr) {
-            regex = new Regex(attr.Pattern, RegexOptions.Compiled);
+            regex = new Regex($"^{attr.Pattern}", RegexOptions.Compiled);
         }
         private readonly Regex regex;
         public bool Matches(ref Buffer buffer, ref object value, ITrace trace)
