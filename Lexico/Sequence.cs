@@ -33,7 +33,9 @@ namespace Lexico
 
             members = typeHierachy.SelectMany(t =>
                 t.GetMembers(Instance | Public | NonPublic)
-                    .Where(m => m is FieldInfo)
+                    .Where(m => m is FieldInfo) // TODO: re-enable properties
+                    // Only include leaf type or non-inherited members
+                    .Where(m => m.ReflectedType == type || ((FieldInfo)m).IsPrivate)
                     .Where(m => m.GetCustomAttribute<IgnoreAttribute>(true) == null)
                     .Select(m => MemberType(m) == typeof(Unnamed)
                         ? (null, ParserCache.GetParser(m))
