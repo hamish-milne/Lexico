@@ -9,6 +9,6 @@ namespace Lexico
         public string String { get; }
         public int Position { get; set; }
         public char? Peek(int index) =>
-            (Position + index < String.Length) ? String[Position + index] : default;
+            (Position + index < String.Length) ? String[Position + index] : default(char?);
     }
 }

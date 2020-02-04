@@ -23,6 +23,8 @@ namespace Lexico
 
         public Stack<IParser> ILR { get; } = new Stack<IParser>();
 
+        public bool FullTrace { get; set; }
+
         public void Result(bool success, Buffer buffer, int startedAt)
         {
             if (log.Count > 0 && log[log.Count - 1].result == null) {

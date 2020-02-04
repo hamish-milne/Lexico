@@ -127,15 +127,13 @@ namespace Lexico
             // TODO: Check compiler-generated NullableAttribute (for reference types)
             foreach (var attr in attrs)
             {
-                switch (attr)
+                parent = attr switch
                 {
-                    case OptionalAttribute _:
-                        parent = new OptionalParser(parent);
-                        break;
-                    case SurroundByAttribute surround:
-                        parent = new SurroundParser(parent, surround);
-                        break;
-                }
+                    OptionalAttribute _ => new OptionalParser(parent),
+                    SurroundByAttribute surround => new SurroundParser(parent, surround),
+                    EOFAfterAttribute _ => new EOFParser(parent),
+                    _ => parent
+                };
             }
             return parent;
         }
