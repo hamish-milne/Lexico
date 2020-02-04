@@ -6,8 +6,8 @@ using static System.Reflection.BindingFlags;
 
 namespace Lexico
 {
-    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-    public class IgnoreAttribute : Attribute
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, Inherited = true)]
+    public class SequenceTermAttribute : Attribute
     {
     }
 
@@ -36,7 +36,7 @@ namespace Lexico
                     .Where(m => m is FieldInfo) // TODO: re-enable properties
                     // Only include leaf type or non-inherited members
                     .Where(m => m.ReflectedType == type || ((FieldInfo)m).IsPrivate)
-                    .Where(m => m.GetCustomAttribute<IgnoreAttribute>(true) == null)
+                    .Where(m => m.GetCustomAttribute<SequenceTermAttribute>(true) != null)
                     .Select(m => MemberType(m) == typeof(Unnamed)
                         ? (null, ParserCache.GetParser(m))
                         : (m, ParserCache.GetParser(m, m.Name))
