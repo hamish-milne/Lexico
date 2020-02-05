@@ -3,9 +3,15 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Reflection;
 using System;
+using static System.AttributeTargets;
 
 namespace Lexico
 {
+    [AttributeUsage(Field | Property)]
+    public class TermAttribute : Attribute
+    {
+    }
+
     internal class UnaryParser : IParser, IUnaryParser
     {
         public IParser Inner { get; private set; }
@@ -95,11 +101,24 @@ namespace Lexico
                     lock (cache) {
                         cache[member] = tempUnary;
                     }
-                    tempUnary.Set(ApplyModifiers(type, (type.IsClass || type.IsValueType) && !type.IsAbstract
-                        ? (IParser)new SequenceParser(type)
-                        : new AlternativeParser(type)
-                    ));
-                    return tempUnary.Inner;
+
+                    try
+                    {
+                        tempUnary.Set(ApplyModifiers(type, (type.IsClass || type.IsValueType) && !type.IsAbstract
+                            ? (IParser)new SequenceParser(type)
+                            : new AlternativeParser(type)
+                        ));
+                        return tempUnary.Inner;
+                    }
+                    catch
+                    {
+                        lock (cache)
+                        {
+                            cache.Remove(member);
+                        }
+                        throw;
+                    }
+                    
                 default:
                     throw new ArgumentException();
             }

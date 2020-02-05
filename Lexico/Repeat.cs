@@ -7,7 +7,7 @@ using static System.AttributeTargets;
 namespace Lexico
 {
     [AttributeUsage(Field | Property | Class | Struct, AllowMultiple = false)]
-    public class SeparatedByAttribute : Attribute
+    public class SeparatedByAttribute : TermAttribute
     {
         public SeparatedByAttribute(Type separator) {
             Separator = separator ?? throw new ArgumentNullException(nameof(separator));

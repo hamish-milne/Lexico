@@ -1,11 +1,10 @@
-
 using System;
 using static System.AttributeTargets;
 
 namespace Lexico
 {
     [AttributeUsage(Field | Property | Class | Struct, AllowMultiple = true)]
-    public class SurroundByAttribute : Attribute
+    public class SurroundByAttribute : TermAttribute
     {
         public SurroundByAttribute(Type surround) {
             Surround = surround ?? throw new ArgumentNullException(nameof(surround));

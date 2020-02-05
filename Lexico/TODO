@@ -9,8 +9,8 @@
       e.g. when in Add, for the *first* part of the Sequence, don't consider Add as an Expression
     ☐ Use Trace to log/stop too many 'indirect left recursion' instances
       e.g. count how many nested 'Add' expressions we can have without advancing. User specifies the number
-☐ EOF terminal
-    ☐ Allow implicit EOF for top-level (i.e. force the entire string to be parsed)
+✔ EOF terminal @done(20-02-05 10:47)
+    ✔ Allow implicit EOF for top-level (i.e. force the entire string to be parsed) @done(20-02-05 10:47)
 ☐ EOL terminal
     ☐ Choose whether Whitespace includes EOLs
 ☐ More number types
@@ -19,7 +19,7 @@
     ☐ NumberStyles
     ☐ RegexOptions
 ☐ API fixes
-    ☐ Opt-in with ParseAttribute/TerminalAttribute; re-enable Properties
+    ✔ Opt-in with ParseAttribute/TerminalAttribute; re-enable Properties @done(20-02-05 10:53)
     ☐ Make Buffer more opaque
     ☐ Use 'NullableAttribute(2)' for Optional
 ☐ Repeat min/max count?

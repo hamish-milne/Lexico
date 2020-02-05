@@ -3,7 +3,7 @@ using System;
 namespace Lexico
 {
     [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = false)]
-    public class OptionalAttribute : Attribute
+    public class OptionalAttribute : TermAttribute
     {
     }
 

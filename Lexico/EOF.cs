@@ -3,8 +3,8 @@ using static System.AttributeTargets;
 
 namespace Lexico
 {
-    [AttributeUsage(Field | Class)]
-    public class EOFAfterAttribute : Attribute { }
+    [AttributeUsage(Field | Class, AllowMultiple = false)]
+    public class EOFAfterAttribute : TermAttribute { }
 
     internal class EOFParser : IParser
     {
@@ -17,6 +17,6 @@ namespace Lexico
             child.Matches(ref buffer, ref value, trace)
             && !buffer.Peek(0).HasValue;
 
-        public override string ToString() => $"{child}|EOF";
+        public override string ToString() => $"{child}>EOF";
     }
 }

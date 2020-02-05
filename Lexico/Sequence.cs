@@ -6,11 +6,6 @@ using static System.Reflection.BindingFlags;
 
 namespace Lexico
 {
-    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, Inherited = true)]
-    public class SequenceTermAttribute : Attribute
-    {
-    }
-
     public class WhitespaceSeparatedAttribute : SeparatedByAttribute
     {
         public WhitespaceSeparatedAttribute() : base(typeof(Whitespace?)) {}
@@ -33,10 +28,10 @@ namespace Lexico
 
             members = typeHierachy.SelectMany(t =>
                 t.GetMembers(Instance | Public | NonPublic)
-                    .Where(m => m is FieldInfo) // TODO: re-enable properties
+                    .Where(m => m is FieldInfo || m is PropertyInfo)
                     // Only include leaf type or non-inherited members
-                    .Where(m => m.ReflectedType == type || ((FieldInfo)m).IsPrivate)
-                    .Where(m => m.GetCustomAttribute<SequenceTermAttribute>(true) != null)
+                    .Where(m => m.ReflectedType == type || IsPrivate(m))
+                    .Where(m => m.GetCustomAttributes<TermAttribute>(true).Any())
                     .Select(m => MemberType(m) == typeof(Unnamed)
                         ? (null, ParserCache.GetParser(m))
                         : (m, ParserCache.GetParser(m, m.Name))
@@ -58,7 +53,7 @@ namespace Lexico
                 value = Activator.CreateInstance(type);
             }
             bool first = true;
-            var prevIlrCount = trace.ILR.Count();
+            var prevIlrCount = trace.ILR.Count;
             foreach (var (member, parser) in members) {
                 object tmp = null;
                 if (!first && separator?.Matches(ref buffer, ref tmp, trace) == false) {
@@ -96,6 +91,13 @@ namespace Lexico
             }
             return true;
         }
+
+        private static bool IsPrivate(MemberInfo member) => member switch
+        {
+            FieldInfo fi => fi.IsPrivate,
+            PropertyInfo pi => (pi.SetMethod?.IsPrivate ?? true) && (pi.GetMethod?.IsPrivate ?? true), // if either accessor is not private, the property is not private
+            _ => throw new ArgumentException($"{member} cannot determine member access level")
+        };
 
         private static void SetMember(object obj, MemberInfo member, object value) {
             switch (member) {

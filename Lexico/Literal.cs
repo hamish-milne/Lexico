@@ -5,7 +5,7 @@ using static System.Reflection.BindingFlags;
 namespace Lexico
 {
     [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = false)]
-    public abstract class TerminalAttribute : Attribute
+    public abstract class TerminalAttribute : TermAttribute
     {
     }
 
