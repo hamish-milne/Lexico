@@ -45,7 +45,7 @@ namespace Lexico
         {
             if (listType.IsArray) {
                 value = new List<object>();
-            }else if (value == null) {
+            } else if (value == null) {
                 value = Activator.CreateInstance(listType);
             }
             var list = value as IList;

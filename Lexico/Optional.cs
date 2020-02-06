@@ -20,7 +20,6 @@ namespace Lexico
                 return true;
             } else {
                 buffer.Position = pos;
-                value = null;
                 return true;
             }
         }
