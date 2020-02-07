@@ -86,5 +86,7 @@ namespace Lexico
             }
             return true;
         }
+
+        public override string ToString() => $"[{element}...]";
     }
 }

@@ -36,6 +36,6 @@ namespace Lexico
                 && surround.MatchChild("(Suffix)", ref context, ref tmp);
         }
 
-        public override string ToString() => $"|{inner}|";
+        public override string ToString() => $"({surround} {inner} {surround})";
     }
 }

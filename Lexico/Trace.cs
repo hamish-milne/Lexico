@@ -20,17 +20,18 @@ namespace Lexico
 
         protected abstract void WriteLine(string str);
 
-        public bool FullTrace { get; set; }
+        public bool Verbose { get; set; }
+        public int IndentAmount { get; set; } = 2;
 
         public void Pop(IParser parser, bool success, object? value, ReadOnlySpan<char> text)
         {
             var sb = new StringBuilder();
 
-            switch (FullTrace)
+            switch (Verbose)
             {
                 case true:
                     if (lastPush.HasValue) {
-                        sb.Append(' ', 4 * indent);
+                        sb.Append(' ', IndentAmount * indent);
                         if (lastPush.Value.name != null) {
                             sb.Append(lastPush.Value.name).Append(" : ");
                         }
@@ -38,7 +39,7 @@ namespace Lexico
                         lastPush = null;
                     } else {
                         indent--;
-                        sb.Append(' ', 4 * indent).Append("} ");
+                        sb.Append(' ', IndentAmount * indent).Append("} ");
                     }
 
                     if (success) {
@@ -51,27 +52,42 @@ namespace Lexico
                     sb.Append(lastPush.HasValue ? "|" : "<");
                     sb.Append(success ? "\u2714 " : "\u2717 ");
 
-                    if (lastPush.HasValue)
-                    {
-                        sb.Append(' ', indent);
+                    if (lastPush.HasValue) {
+                        sb.Append(' ', IndentAmount * indent);
                         if (lastPush.Value.parser != null) {
                             sb.Append(lastPush.Value.parser);
                         }
                         lastPush = null;
                     }
-                    else
-                    {
+                    else {
                         indent--;
-                        sb.Append(' ', indent).Append(parserKindStack.Pop());
+                        sb.Append(' ', IndentAmount * indent).Append(parserKindStack.Pop());
                     }
 
-                    
-                    if (success) {
-                        var valString = value?.ToString();
-                        sb.Append(string.IsNullOrEmpty(valString) ? $"`{valString}`" : "nothing");
-                    } else {
-                        sb.Append("`").Append(Regex.Replace(new string(text.ToArray()), @"\r\n?|\n", @"\n")).Append("`");
+                    sb.Append(success ? " \u2714 " : " \u2717 ");
+
+                    if (success)
+                    {
+                        if (string.IsNullOrEmpty(value?.ToString())) {
+                            sb.Append("`")
+                              .Append(Regex.Replace(new string(text.ToArray()), @"\r\n?|\n", @"\n"))
+                              .Append("`");
+                        }
+                        else {
+                            sb.Append("<nothing>");
+                        }
                     }
+                    else {
+                        if (text.Length > 0) {
+                            sb.Append("`")
+                              .Append(Regex.Replace(new string(text.ToArray()), @"\r\n?|\n", @"\n"))
+                              .Append("`");
+                        }
+                        else {
+                            sb.Append("<nothing>");
+                        }
+                    }
+
                     break;
             }
 
@@ -90,10 +106,10 @@ namespace Lexico
         {
             var sb = new StringBuilder();
 
-            switch (FullTrace)
+            switch (Verbose)
             {
                 case true:
-                    sb.Append(' ', 4 * indent);
+                    sb.Append(' ', IndentAmount * indent);
                     if (name != null) {
                         sb.Append(name).Append(" : ");
                     }
@@ -103,7 +119,7 @@ namespace Lexico
                 case false:
                     var parserString = parser?.ToString() ?? "<UNKNOWN>";
                     parserKindStack.Push(parserString);
-                    sb.Append(">  ").Append(' ', indent).Append(parserString);
+                    sb.Append(">  ").Append(' ', IndentAmount * indent).Append(parserString);
                     indent++;
                     break;
             }

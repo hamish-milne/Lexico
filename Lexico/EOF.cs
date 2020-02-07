@@ -13,10 +13,21 @@ namespace Lexico
         }
         private readonly IParser child;
 
+        private class NothingParser : IParser
+        {
+            public static NothingParser Instance { get; } = new NothingParser();
+            
+            private NothingParser(){}
+
+            public bool Matches(ref IContext context, ref object? value) => !context.Peek(0).HasValue;
+
+            public override string ToString() => "<nothing>";
+        }
+
         public bool Matches(ref IContext context, ref object? value) =>
             child.MatchChild(null, ref context, ref value)
-            && !context.Peek(0).HasValue;
+            && NothingParser.Instance.MatchChild("EOF", ref context, ref value);
 
-        public override string ToString() => $"{child}>EOF";
+        public override string ToString() => $"{child}>{NothingParser.Instance}";
     }
 }
