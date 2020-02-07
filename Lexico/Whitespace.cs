@@ -9,17 +9,19 @@ namespace Lexico
         private static readonly object ws = new Whitespace();
         public static WhitespaceParser Instance { get; } = new WhitespaceParser();
 
-        public bool Matches(ref Buffer buffer, ref object value, ITrace trace)
+        public bool Matches(ref IContext context, ref object? value)
         {
-            var c = buffer.Peek(0);
+            int idx = 0;
+            var c = context.Peek(idx);
             if (c.HasValue && Char.IsWhiteSpace(c.Value)) {
                 do {
-                    buffer.Position++;
-                    c = buffer.Peek(0);
+                    idx++;
+                    c = context.Peek(idx);
                 } while (c.HasValue && Char.IsWhiteSpace(c.Value));
                 if (value == null) {
                     value = ws;
                 }
+                context = context.Advance(idx);
                 return true;
             } else {
                 return false;

@@ -34,12 +34,15 @@ namespace Lexico
                     .Where(m => m.GetCustomAttributes<TermAttribute>(true).Any())
                     .Select(m => MemberType(m) == typeof(Unnamed)
                         ? (null, ParserCache.GetParser(m))
-                        : (m, ParserCache.GetParser(m, m.Name))
+                        : (m, ParserCache.GetParser(m))
                     )
             ).ToArray();
+            if (members.Length == 0) {
+                throw new ArgumentException($"Sequence {type} has no Terms");
+            }
             var sep = type.GetCustomAttribute<SeparatedByAttribute>(true);
             if (sep != null) {
-                separator = ParserCache.GetParser(sep.Separator, "separator");
+                separator = ParserCache.GetParser(sep.Separator);
             }
         }
 
@@ -47,46 +50,33 @@ namespace Lexico
         private readonly (MemberInfo? member, IParser parser)[] members;
         private readonly IParser? separator;
 
-        public bool Matches(ref Buffer buffer, ref object value, ITrace trace)
+        public bool Matches(ref IContext context, ref object? value)
         {
             if (!type.IsInstanceOfType(value)) {
                 value = Activator.CreateInstance(type);
             }
             bool first = true;
-            var prevIlrCount = trace.ILR.Count;
             foreach (var (member, parser) in members) {
-                object tmp = null;
-                if (!first && separator?.Matches(ref buffer, ref tmp, trace) == false) {
+                object? tmp = null;
+                if (!first && !separator.MatchChild("(Separator)", ref context, ref tmp)) {
                     return false;
                 }
-                // TODO: Do this for 'surround' as well?
-                if (first) {
-                    trace.ILR.Push(this);
-                }
-                try
-                {
-                    if (member == null) {
-                        if (!parser.Matches(ref buffer, ref tmp, trace)) {
-                            return false;
+                first = false;
+                if (member == null) {
+                    tmp = null;
+                    if (!parser.MatchChild(null, ref context, ref tmp)) {
+                        return false;
+                    }
+                } else {
+                    var oldvalue = GetMember(value!, member);
+                    var newvalue = oldvalue;
+                    if (parser.MatchChild(member.Name, ref context, ref newvalue)) {
+                        if (member != null && newvalue != oldvalue) {
+                            SetMember(value!, member, newvalue);
                         }
                     } else {
-                        var oldvalue = GetMember(value, member);
-                        var newvalue = oldvalue;
-                        if (parser.Matches(ref buffer, ref newvalue, trace)) {
-                            if (member != null && newvalue != oldvalue) {
-                                SetMember(value, member, newvalue);
-                            }
-                        } else {
-                            return false;
-                        }
+                        return false;
                     }
-                } finally {
-                    if (first) {
-                        while (trace.ILR.Count > prevIlrCount) {
-                            trace.ILR.Pop();
-                        }
-                    }
-                    first = false;
                 }
             }
             return true;
@@ -99,7 +89,7 @@ namespace Lexico
             _ => throw new ArgumentException($"{member} cannot determine member access level")
         };
 
-        private static void SetMember(object obj, MemberInfo member, object value) {
+        private static void SetMember(object obj, MemberInfo member, object? value) {
             switch (member) {
                 case FieldInfo field: field.SetValue(obj, value); break;
                 case PropertyInfo property: property.SetValue(obj, value); break;
@@ -107,7 +97,7 @@ namespace Lexico
             }
         }
 
-        private static object GetMember(object obj, MemberInfo member) {
+        private static object? GetMember(object obj, MemberInfo member) {
             return member switch
             {
                 FieldInfo field => field.GetValue(obj),
@@ -125,6 +115,6 @@ namespace Lexico
             };
         }
 
-        public override string ToString() => type.FullName;
+        public override string ToString() => type.Name;
     }
 }

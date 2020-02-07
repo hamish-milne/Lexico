@@ -4,6 +4,11 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <LangVersion>8</LangVersion>
     <Nullable>enable</Nullable>
+    <AllowUnsafe>true</AllowUnsafe>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Memory" Version="4.5.3" />
+  </ItemGroup>
 
 </Project>

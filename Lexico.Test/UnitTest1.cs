@@ -8,8 +8,8 @@ namespace Lexico.Test
         [Fact]
         public void Test1()
         {
-            var expr = Parser.Parse<Calculator.Expression>("5-(3/2)^8+1");
-            Assert.Equal(8.0, expr.Value);
+            var expr = Parser.Parse<Calculator.Expression>("5-(3/2)^(2+1)", new ConsoleTrace());
+            Assert.Equal(1.625, expr.Value);
         }
 
         [Fact]
@@ -21,7 +21,7 @@ namespace Lexico.Test
                 5: ""bar"",
                 [6.1]: {""baz"": ""bat""}
             }
-            ");
+            ", new ConsoleTrace());
         }
     }
 }

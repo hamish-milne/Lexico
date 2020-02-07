@@ -41,13 +41,14 @@ namespace Lexico
             this.literal = literal;
         }
         private readonly string literal;
-        public bool Matches(ref Buffer buffer, ref object value, ITrace trace)
+        public bool Matches(ref IContext context, ref object? value)
         {
-            for (int i = 0; i < literal.Length; i++, buffer.Position++) {
-                if (buffer.Peek(0) != literal[i]) {
+            for (int i = 0; i < literal.Length; i++) {
+                if (context.Peek(i) != literal[i]) {
                     return false;
                 }
             }
+            context = context.Advance(literal.Length);
             value = literal;
             return true;
         }

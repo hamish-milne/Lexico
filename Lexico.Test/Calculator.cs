@@ -7,14 +7,16 @@ namespace Calculator
     public abstract class Expression
     {
         public abstract float Value { get; }
+
+        public override string ToString() => Value.ToString();
     }
 
    // [WhitespaceSeparated]
     public abstract class BinaryExpression : Expression
     {
-        protected Expression lhs;
+        [Term] protected Expression lhs;
         [IndirectLiteral(nameof(Operator))] protected Unnamed _;
-        protected Expression rhs;
+        [Term] protected Expression rhs;
 
         protected abstract string Operator { get; }
     }
@@ -52,7 +54,7 @@ namespace Calculator
   //  [WhitespaceSurrounded]
     public class Number : Expression
     {
-        float value;
+        [Term] float value;
         public override float Value => value;
     }
 
@@ -60,7 +62,7 @@ namespace Calculator
     public class Bracketed : Expression
     {
         [Literal("(")] Unnamed _;
-        Expression inner;
+        [Term] Expression inner;
         [Literal(")")] Unnamed __;
 
         public override float Value => inner.Value;

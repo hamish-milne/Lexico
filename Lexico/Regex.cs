@@ -19,12 +19,13 @@ namespace Lexico
             regex = new Regex($"^{attr.Pattern}", RegexOptions.Compiled);
         }
         private readonly Regex regex;
-        public bool Matches(ref Buffer buffer, ref object value, ITrace trace)
+        public bool Matches(ref IContext context, ref object? value)
         {
-            var match = regex.Match(buffer.String, buffer.Position, buffer.String.Length - buffer.Position);
+            var str = context.Text;
+            var match = regex.Match(str, context.Position, str.Length - context.Position);
             if (match.Success) {
                 value = match.Value;
-                buffer.Position += match.Value.Length;
+                context = context.Advance(match.Value.Length);
                 return true;
             }
             return false;

@@ -13,9 +13,9 @@ namespace Lexico
         }
         private readonly IParser child;
 
-        public bool Matches(ref Buffer buffer, ref object value, ITrace trace) =>
-            child.Matches(ref buffer, ref value, trace)
-            && !buffer.Peek(0).HasValue;
+        public bool Matches(ref IContext context, ref object? value) =>
+            child.MatchChild(null, ref context, ref value)
+            && !context.Peek(0).HasValue;
 
         public override string ToString() => $"{child}>EOF";
     }

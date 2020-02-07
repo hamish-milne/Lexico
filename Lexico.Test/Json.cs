@@ -7,7 +7,7 @@ namespace Json
     [WhitespaceSurrounded]
     public class JsonDocument
     {
-        JsonValue value;
+        [Term] JsonValue value;
     }
 
     public abstract class JsonValue
@@ -16,7 +16,7 @@ namespace Json
 
     public class JsonNumber : JsonValue
     {
-        float value;
+        [Term] float value;
         public float Value => value;
     }
 
@@ -44,9 +44,9 @@ namespace Json
     [WhitespaceSeparated]
     public class JsonProperty
     {
-        JsonValue name;
+        [Term] JsonValue name;
         [Literal(":")] Unnamed _;
-        JsonValue value;
+        [Term] JsonValue value;
     }
 
     [WhitespaceSeparated]

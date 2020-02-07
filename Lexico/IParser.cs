@@ -1,7 +1,7 @@
 namespace Lexico
 {
-    internal interface IParser
+    public interface IParser
     {
-        bool Matches(ref Buffer buffer, ref object value, ITrace trace);
+        bool Matches(ref IContext context, ref object? value);
     }
 }

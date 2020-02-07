@@ -12,31 +12,33 @@ namespace Lexico
     {
     }
 
-    internal class UnaryParser : IParser, IUnaryParser
+    internal class UnaryParser : IParser
     {
-        public IParser Inner { get; private set; }
+        public IParser? Inner { get; private set; }
 
         public void Set(IParser inner) {
             if (Inner != null) {
                 throw new InvalidOperationException("Already set");
             }
             Inner = inner ?? throw new ArgumentNullException(nameof(inner));
-            Inner = inner.GetInner();
         }
 
-        public bool Matches(ref Buffer buffer, ref object value, ITrace trace)
+        public bool Matches(ref IContext context, ref object? value)
         {
             if (Inner == null) {
                 throw new InvalidOperationException("Not filled yet");
             }
-            return Inner.Matches(ref buffer, ref value, trace);
+            return Inner.MatchChild(null, ref context, ref value);
         }
 
         public override string ToString() => Inner?.ToString() ?? "UNSET";
+
+        public override int GetHashCode() => Inner?.GetHashCode() ?? 0;
+        public override bool Equals(object obj) => object.ReferenceEquals(this, obj) || object.ReferenceEquals(Inner, obj);
     }
     internal class ParserCache
     {
-        public static IParser GetParser(MemberInfo member, string? name = null)
+        public static IParser GetParser(MemberInfo member)
         {
             // We lock on the argument to make sure two threads don't create the same parser
             IParser? parser;
@@ -50,18 +52,6 @@ namespace Lexico
                         cache[member] = parser;
                     }
                 }
-                if (name == null) {
-                    lock (wrappers) {
-                        if (!wrappers.TryGetValue(parser, out var tw)) {
-                            tw = new TraceWrapper(parser);
-                            wrappers.Add(parser, tw);
-                            return tw;
-                        }
-                    }
-                }
-            }
-            if (name != null) {
-                return new TraceWrapper(parser, name);
             }
             return parser;
         }
@@ -108,7 +98,7 @@ namespace Lexico
                             ? (IParser)new SequenceParser(type)
                             : new AlternativeParser(type)
                         ));
-                        return tempUnary.Inner;
+                        return tempUnary.Inner!;
                     }
                     catch
                     {
@@ -118,7 +108,6 @@ namespace Lexico
                         }
                         throw;
                     }
-                    
                 default:
                     throw new ArgumentException();
             }
@@ -139,7 +128,10 @@ namespace Lexico
 
         static IParser ApplyModifiers(MemberInfo member, IParser parent)
         {
-            if (parent.GetInner() is RepeatParser repeat) {
+            if (parent is UnaryParser u && u.Inner != null) {
+                parent = u.Inner;
+            }
+            if (parent is RepeatParser repeat) {
                 parent = RepeatParser.Modify(repeat, member);
             }
             var attrs = member.GetCustomAttributes(true).ToArray();
@@ -159,8 +151,5 @@ namespace Lexico
 
         private static readonly Dictionary<MemberInfo, IParser> cache
             = new Dictionary<MemberInfo, IParser>();
-
-        private static readonly Dictionary<IParser, TraceWrapper> wrappers
-            = new Dictionary<IParser, TraceWrapper>();
     }
 }

@@ -1,9 +1,9 @@
-☐ Trace
+✔ Trace @done(20-02-07 00:35)
     ✔ Implement @done(20-02-01 16:47)
     ✔ GetParser: Named or unnamed, return Trace wrapper @done(20-02-01 16:47)
-    ☐ Log errors; optional fast path
-☐ Deferred Terminal value (from a Property)
-    ☐ Push the current object to Trace
+    ✔ Log errors; optional fast path @done(20-02-07 00:35)
+✔ Deferred Terminal value (from a Property) @done(20-02-07 00:35)
+    ✘ Push the current object to Trace @cancelled(20-02-07 00:35)
 ☐ Left recursion
     ✔ Use Trace to log/stop 'direct left recursion' instances @done(20-02-01 16:47)
       e.g. when in Add, for the *first* part of the Sequence, don't consider Add as an Expression
@@ -20,13 +20,19 @@
     ☐ RegexOptions
 ☐ API fixes
     ✔ Opt-in with ParseAttribute/TerminalAttribute; re-enable Properties @done(20-02-05 10:53)
-    ☐ Make Buffer more opaque
+    ✔ Make Buffer more opaque @done(20-02-07 00:35)
     ☐ Use 'NullableAttribute(2)' for Optional
+☐ Better Alternatives
+    ☐ Explicit 'alternatives' attribute
+    ☐ 'Excludes' attribute
+    ☐ Priority attribute
 ☐ Repeat min/max count?
 ☐ Custom terminals
 ☐ Punctuation attributes (instead of Unnamed)
 ☐ UTF8 support
-☐ Explicit 'alternatives' attribute
+☐ Interface for Location
+☐ Precise error reporting
+☐ Formatting
 ☐ JSON implementation!!
 ☐ Regex implementation!!
 ☐ Perf test

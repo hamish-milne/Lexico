@@ -1,114 +1,60 @@
 using System;
 using System.Text;
-using System.Collections.Generic;
 
 namespace Lexico
 {
-    internal interface ITrace
+    public interface ITrace
     {
-        void Indent(string? name, IParser parser);
-        void Result(bool success, Buffer buffer, int startedAt);
-        Stack<IParser> ILR { get; }
+        void Push(IParser parser, string? name);
+        void Pop(IParser parser, bool success, object? value, ReadOnlySpan<char> text);
     }
 
-    internal class Trace : ITrace
+    public sealed class ConsoleTrace : ITrace
     {
-        private readonly List<(string? name, IParser? parser, bool? result, Buffer? buf, int startedAt)> log
-            = new List<(string? name, IParser? parser, bool? result, Buffer? buf, int startedAt)>();
+        int indent = 0;
 
-        public void Indent(string? name, IParser parser)
-        {
-            log.Add((name, parser, null, null, 0));
-        }
+        (IParser parser, string? name)? lastPush;
 
-        public Stack<IParser> ILR { get; } = new Stack<IParser>();
-
-        public bool FullTrace { get; set; }
-
-        public void Result(bool success, Buffer buffer, int startedAt)
-        {
-            if (log.Count > 0 && log[log.Count - 1].result == null) {
-                var l = log[log.Count - 1];
-                l.result = success;
-                l.buf = buffer;
-                l.startedAt = startedAt;
-                log[log.Count - 1] = l;
-            } else {
-                log.Add((null, null, success, buffer, startedAt));
-            }
-        }
-
-        public override string ToString()
+        public void Pop(IParser parser, bool success, object? value, ReadOnlySpan<char> text)
         {
             var sb = new StringBuilder();
-            int indent = 0;
-            foreach (var (name, parser, result, buf, startedAt) in log)
-            {
-                if (parser == null) {
-                    indent--;
-                    sb.Append(' ', indent*4).Append("} ").Append(result);
-                } else {
-                    sb.Append(' ', indent*4);
-                    if (name != null) {
-                        sb.Append(name).Append(" = ");
-                    }
-                    sb.Append(parser);
-                    if (result.HasValue) {
-                        sb.Append(": ").Append(result.Value);
-                    } else {
-                        sb.Append(" {");
-                        indent++;
-                    }
+            if (lastPush.HasValue) {
+                sb.Append(' ', 4 * indent);
+                if (lastPush.Value.name != null) {
+                    sb.Append(lastPush.Value.name).Append(" : ");
                 }
-                if (buf.HasValue) {
-                    sb.Append(" | `");
-                    if (result == true) {
-                        sb.Append(buf.Value.String, startedAt, (buf.Value.Position - startedAt));
-                    } else {
-                        sb.Append(buf.Value.Peek(0)?.ToString() ?? "<EOF>");
-                    }
-                    sb.Append("`");
-                }
-                sb.AppendLine();
+                sb.Append(lastPush.Value.parser?.ToString() ?? "<UNKNOWN>").Append(' ');
+                lastPush = null;
+            } else {
+                indent--;
+                sb.Append(' ', 4 * indent).Append("} ");
             }
-            return sb.ToString();
-        }
-    }
 
-    internal interface IUnaryParser
-    {
-        IParser Inner { get; }
-    }
-
-    internal static class ParserExtensions
-    {
-        public static IParser GetInner(this IParser parser)
-        {
-            while (parser is IUnaryParser up && up.Inner != null) {
-                parser = up.Inner;
+            if (success) {
+                sb.Append("\u2714").Append(" = ").Append(value ?? "<null>");
+            } else {
+                sb.Append("\u2717 (got `").Append(text.ToArray()).Append("`)");
             }
-            return parser;
+            Console.WriteLine(sb);
         }
-    }
 
-    internal sealed class TraceWrapper : IParser, IUnaryParser
-    {
-        public TraceWrapper(IParser inner, string? name = null) {
-            Inner = inner ?? throw new ArgumentNullException(nameof(inner));
-            Inner = Inner.GetInner();
-            this.name = name;
-        }
-        public IParser Inner { get; }
-        private readonly string? name;
-        public bool Matches(ref Buffer buffer, ref object value, ITrace trace)
+        public void Push(IParser parser, string? name)
         {
-            trace.Indent(name, Inner);
-            int startedAt = buffer.Position;
-            var result = Inner.Matches(ref buffer, ref value, trace);
-            trace.Result(result, buffer, startedAt);
-            return result;
+            if (lastPush.HasValue) {
+                WritePush(lastPush.Value.parser, lastPush.Value.name);
+            }
+            lastPush = (parser, name);
         }
 
-        public override string ToString() => Inner.ToString();
+        private void WritePush(IParser parser, string? name)
+        {
+            var sb = new StringBuilder().Append(' ', 4 * indent);
+            if (name != null) {
+                sb.Append(name).Append(" : ");
+            }
+            sb.Append(parser?.ToString() ?? "<UNKNOWN>").Append(" {");
+            indent++;
+            Console.WriteLine(sb);
+        }
     }
 }

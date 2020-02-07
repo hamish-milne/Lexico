@@ -21,19 +21,19 @@ namespace Lexico
     {
         public SurroundParser(IParser inner, SurroundByAttribute attribute)
         {
-            surround = ParserCache.GetParser(attribute.Surround, "<surround>");
+            surround = ParserCache.GetParser(attribute.Surround);
             this.inner = inner ?? throw new ArgumentNullException(nameof(inner));
         }
 
         private readonly IParser inner;
         private readonly IParser surround;
 
-        public bool Matches(ref Buffer buffer, ref object value, ITrace trace)
+        public bool Matches(ref IContext context, ref object? value)
         {
-            object tmp = null;
-            return surround.Matches(ref buffer, ref tmp, trace)
-                && inner.Matches(ref buffer, ref value, trace)
-                && surround.Matches(ref buffer, ref tmp, trace);
+            object? tmp = null;
+            return surround.MatchChild("(Prefix)", ref context, ref tmp)
+                && inner.MatchChild(null, ref context, ref value)
+                && surround.MatchChild("(Suffix)", ref context, ref tmp);
         }
 
         public override string ToString() => $"|{inner}|";

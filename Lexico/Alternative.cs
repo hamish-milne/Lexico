@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System;
 
 namespace Lexico
@@ -22,25 +20,17 @@ namespace Lexico
 
         private readonly Type baseType;
         private readonly IParser[] options;
-        public bool Matches(ref Buffer buffer, ref object value, ITrace trace)
+        public bool Matches(ref IContext context, ref object? value)
         {
-            var prevValue = value;
-            var prevPos = buffer.Position;
             foreach (var option in options)
             {
-                // TODO: A faster stack impl for this
-                if (trace.ILR.Contains(option.GetInner())) {
-                    continue;
-                }
-                buffer.Position = prevPos;
-                value = prevValue;
-                if (option.Matches(ref buffer, ref value, trace)) {
+                if (option.MatchChild(null, ref context, ref value)) {
                     return true;
                 }
             }
             return false;
         }
 
-        public override string ToString() => $"Any {baseType.FullName}";
+        public override string ToString() => $"Any {baseType.Name}";
     }
 }
