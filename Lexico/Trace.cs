@@ -13,7 +13,8 @@ namespace Lexico
 
     public abstract class TextTrace : ITrace
     {
-        int indent = 0;
+        int currentIndent = 0;
+        private int IndentCount => Math.Max(0, SpacesPerIndent * currentIndent - 2); // -2 for leading outliner characters
 
         (IParser parser, string? name)? lastPush;
         readonly Stack<string> parserKindStack = new Stack<string>();
@@ -21,25 +22,27 @@ namespace Lexico
         protected abstract void WriteLine(string str);
 
         public bool Verbose { get; set; }
-        public int IndentAmount { get; set; } = 2;
+        public int SpacesPerIndent { get; set; } = 2;
 
         public void Pop(IParser parser, bool success, object? value, ReadOnlySpan<char> text)
         {
-            var sb = new StringBuilder();
+            var sb = new StringBuilder()
+                     .Append(lastPush.HasValue ? "|" : "<")
+                     .Append(success ? "\u2714 " : "\u2717 ");
 
             switch (Verbose)
             {
                 case true:
                     if (lastPush.HasValue) {
-                        sb.Append(' ', IndentAmount * indent);
+                        sb.Append(' ', IndentCount);
                         if (lastPush.Value.name != null) {
                             sb.Append(lastPush.Value.name).Append(" : ");
                         }
                         sb.Append(lastPush.Value.parser?.ToString() ?? "<UNKNOWN>").Append(' ');
                         lastPush = null;
                     } else {
-                        indent--;
-                        sb.Append(' ', IndentAmount * indent).Append("} ");
+                        currentIndent--;
+                        sb.Append(' ', IndentCount).Append("} ");
                     }
 
                     if (success) {
@@ -49,44 +52,36 @@ namespace Lexico
                     }
                     break;
                 case false:
-                    sb.Append(lastPush.HasValue ? "|" : "<");
-                    sb.Append(success ? "\u2714 " : "\u2717 ");
-
                     if (lastPush.HasValue) {
-                        sb.Append(' ', IndentAmount * indent);
+                        sb.Append(' ', IndentCount);
                         if (lastPush.Value.parser != null) {
                             sb.Append(lastPush.Value.parser);
                         }
                         lastPush = null;
                     }
                     else {
-                        indent--;
-                        sb.Append(' ', IndentAmount * indent).Append(parserKindStack.Pop());
+                        currentIndent--;
+                        sb.Append(' ', IndentCount).Append(parserKindStack.Pop());
                     }
 
                     sb.Append(success ? " \u2714 " : " \u2717 ");
 
-                    if (success)
+                    
+                    var result = new string(text.ToArray());
+                    void AppendResult(bool anyResult)
                     {
-                        if (string.IsNullOrEmpty(value?.ToString())) {
+                        if (anyResult) {
                             sb.Append("`")
-                              .Append(Regex.Replace(new string(text.ToArray()), @"\r\n?|\n", @"\n"))
+                              .Append(Regex.Replace(result, @"\r\n?|\n", @"\n"))
                               .Append("`");
                         }
                         else {
                             sb.Append("<nothing>");
                         }
                     }
-                    else {
-                        if (text.Length > 0) {
-                            sb.Append("`")
-                              .Append(Regex.Replace(new string(text.ToArray()), @"\r\n?|\n", @"\n"))
-                              .Append("`");
-                        }
-                        else {
-                            sb.Append("<nothing>");
-                        }
-                    }
+
+                    if (success) AppendResult(value != null);
+                    else AppendResult(text.Length > 0);
 
                     break;
             }
@@ -104,23 +99,23 @@ namespace Lexico
 
         private void WritePush(IParser parser, string? name)
         {
-            var sb = new StringBuilder();
+            var sb = new StringBuilder().Append(">  ");
 
             switch (Verbose)
             {
                 case true:
-                    sb.Append(' ', IndentAmount * indent);
+                    sb.Append(' ', IndentCount);
                     if (name != null) {
                         sb.Append(name).Append(" : ");
                     }
                     sb.Append(parser?.ToString() ?? "<UNKNOWN>").Append(" {");
-                    indent++;
+                    currentIndent++;
                     break;
                 case false:
                     var parserString = parser?.ToString() ?? "<UNKNOWN>";
                     parserKindStack.Push(parserString);
-                    sb.Append(">  ").Append(' ', IndentAmount * indent).Append(parserString);
-                    indent++;
+                    sb.Append(' ', IndentCount).Append(parserString);
+                    currentIndent++;
                     break;
             }
 
