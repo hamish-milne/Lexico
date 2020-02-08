@@ -19,7 +19,7 @@ namespace Lexico
         (IParser parser, string? name)? lastPush;
         readonly Stack<string> parserKindStack = new Stack<string>();
 
-        protected abstract void WriteLine(string str);
+        protected abstract void WriteLine(bool isPop, bool success, string str);
 
         public bool Verbose { get; set; }
         public int SpacesPerIndent { get; set; } = 2;
@@ -86,7 +86,7 @@ namespace Lexico
                     break;
             }
 
-            WriteLine(sb.ToString());
+            WriteLine(true, success, sb.ToString());
         }
 
         public void Push(IParser parser, string? name)
@@ -99,33 +99,36 @@ namespace Lexico
 
         private void WritePush(IParser parser, string? name)
         {
-            var sb = new StringBuilder().Append(">  ");
+            var sb = new StringBuilder().Append(">  ").Append(' ', IndentCount);
 
             switch (Verbose)
             {
                 case true:
-                    sb.Append(' ', IndentCount);
                     if (name != null) {
                         sb.Append(name).Append(" : ");
                     }
                     sb.Append(parser?.ToString() ?? "<UNKNOWN>").Append(" {");
-                    currentIndent++;
                     break;
                 case false:
                     var parserString = parser?.ToString() ?? "<UNKNOWN>";
                     parserKindStack.Push(parserString);
-                    sb.Append(' ', IndentCount).Append(parserString);
-                    currentIndent++;
+                    sb.Append(parserString);
                     break;
             }
 
-            WriteLine(sb.ToString());
+            currentIndent++;
+            WriteLine(false, false, sb.ToString());
         }
     }
 
     public sealed class ConsoleTrace : TextTrace
     {
-        protected override void WriteLine(string str) => Console.WriteLine(str);
+        protected override void WriteLine(bool isPop, bool success, string str)
+        {
+            Console.ForegroundColor = isPop ? success ? ConsoleColor.Green : ConsoleColor.Red : ConsoleColor.Yellow;
+            Console.WriteLine(str);
+            Console.ForegroundColor = ConsoleColor.White;
+        }
     }
 
     public sealed class DelegateTextTrace : TextTrace
@@ -133,6 +136,6 @@ namespace Lexico
         public DelegateTextTrace(Action<string> writeLine) => _writeLineDelegate = writeLine;
 
         private readonly Action<string> _writeLineDelegate;
-        protected override void WriteLine(string str) => _writeLineDelegate?.Invoke(str);
+        protected override void WriteLine(bool isPop, bool success, string str) => _writeLineDelegate?.Invoke(str);
     }
 }

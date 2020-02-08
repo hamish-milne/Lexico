@@ -1,8 +1,26 @@
+using System;
 using System.Globalization;
+using System.Reflection;
 using System.Text.RegularExpressions;
 
 namespace Lexico
 {
+    public class NumberAttribute : TerminalAttribute
+    {
+        public override IParser Create(MemberInfo member)
+        {
+            return member.GetMemberType() switch
+            {
+                var t when t == typeof(float) => FloatParser.Instance,
+                var t when t == typeof(int) => IntParser.Instance,
+                _ => throw new ArgumentException($"Unknown number type for {member}"),
+            };
+        }
+
+        public override bool AddDefault(MemberInfo member)
+            => member is Type t && t.IsPrimitive;
+    }
+
     internal abstract class NumberParser : IParser
     {
         protected NumberParser(string pattern) {

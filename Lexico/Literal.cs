@@ -1,12 +1,20 @@
 using System.Reflection;
 using System;
 using static System.Reflection.BindingFlags;
+using static System.AttributeTargets;
 
 namespace Lexico
 {
-    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = false)]
+    [AttributeUsage(Property | Field | Class | Struct, AllowMultiple = false)]
     public abstract class TerminalAttribute : TermAttribute
     {
+        public override int Priority => 30;
+        public abstract IParser Create(MemberInfo member);
+
+        public override IParser Create(MemberInfo member, Func<IParser> child)
+        {
+            return Create(member);
+        }
     }
 
     public class LiteralAttribute : TerminalAttribute
@@ -16,7 +24,7 @@ namespace Lexico
         }
         public string Value { get; }
 
-        internal IParser Create() {
+        public override IParser Create(MemberInfo member) {
             return new LiteralParser(Value);
         }
     }
@@ -28,7 +36,7 @@ namespace Lexico
         }
         public string Property { get; }
 
-        internal IParser Create(MemberInfo member) {
+        public override IParser Create(MemberInfo member) {
             var prop = member.ReflectedType.GetProperty(Property, Instance | Public | NonPublic)
                 ?? throw new ArgumentException($"Could not find `{Property}` on {member.ReflectedType}");
             return new LiteralParser((string)prop.GetValue(Activator.CreateInstance(member.ReflectedType, true)));

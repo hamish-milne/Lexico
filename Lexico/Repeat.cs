@@ -13,13 +13,34 @@ namespace Lexico
             Separator = separator ?? throw new ArgumentNullException(nameof(separator));
         }
         public Type Separator { get; }
+
+        public override IParser Create(MemberInfo member, Func<IParser> child)
+        {
+            var c = child();
+            var sep = ParserCache.GetParser(Separator);
+            return c switch {
+                RepeatParser r => new RepeatParser(r.ListType, sep),
+                SequenceParser s => new SequenceParser(s.Type, sep),
+                _ => throw new ArgumentException($"Separator not valid on {c}")
+            };
+        }
+    }
+
+    public class RepeatAttribute : TermAttribute
+    {
+        public override int Priority => 20;
+        public override IParser Create(MemberInfo member, Func<IParser> child)
+            => new RepeatParser(member.GetMemberType(), null);
+
+        public override bool AddDefault(MemberInfo member)
+            => member is Type t && typeof(ICollection).IsAssignableFrom(t);
     }
 
     internal class RepeatParser : IParser
     {
         public RepeatParser(Type listType, IParser? separator)
         {
-            this.listType = listType ?? throw new ArgumentNullException(nameof(listType));
+            this.ListType = listType ?? throw new ArgumentNullException(nameof(listType));
             element = ParserCache.GetParser(listType.IsArray ? listType.GetElementType() : listType.GetGenericArguments()[0]);
             if (!typeof(IList).IsAssignableFrom(listType)) {
                 addMethod = listType.GetMethod("Add")
@@ -28,25 +49,16 @@ namespace Lexico
             this.separator = separator;
         }
 
-        public static RepeatParser Modify(RepeatParser parent, MemberInfo member)
-        {
-            var sep = member.GetCustomAttribute<SeparatedByAttribute>(true);
-            if (sep != null) {
-                return new RepeatParser(parent.listType, ParserCache.GetParser(sep.Separator));
-            } else {
-                return parent;
-            }
-        }
-        private readonly Type listType;
+        public Type ListType { get; }
         private readonly IParser element;
         private readonly MethodInfo? addMethod;
         private readonly IParser? separator;
         public bool Matches(ref IContext context, ref object? value)
         {
-            if (listType.IsArray) {
+            if (ListType.IsArray) {
                 value = new List<object>();
             } else if (value == null) {
-                value = Activator.CreateInstance(listType);
+                value = Activator.CreateInstance(ListType);
             }
             var list = value as IList;
             var args = new object?[1];
@@ -78,9 +90,9 @@ namespace Lexico
                 lastSuccessPos = context;
             } while (true);
             context = lastSuccessPos;
-            if (listType.IsArray)
+            if (ListType.IsArray)
             {
-                var newarr = Array.CreateInstance(listType.GetElementType(), list!.Count);
+                var newarr = Array.CreateInstance(ListType.GetElementType(), list!.Count);
                 list!.CopyTo(newarr, 0);
                 value = newarr;
             }

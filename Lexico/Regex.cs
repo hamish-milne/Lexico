@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System;
 
@@ -10,13 +11,15 @@ namespace Lexico
         }
 
         public string Pattern { get; }
+
+        public override IParser Create(MemberInfo member) => new RegexParser(Pattern);
     }
 
     internal class RegexParser : IParser
     {
         // TODO: Case-insensitive etc.?
-        public RegexParser(RegexAttribute attr) {
-            regex = new Regex($"^{attr.Pattern}", RegexOptions.Compiled);
+        public RegexParser(string pattern) {
+            regex = new Regex($"^{pattern}", RegexOptions.Compiled);
         }
         private readonly Regex regex;
         public bool Matches(ref IContext context, ref object? value)

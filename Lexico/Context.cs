@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Lexico
 {
-    public interface IContext : IDisposable
+    public interface IContext
     {
         string Text { get; }
         int Position { get; }
@@ -20,11 +20,14 @@ namespace Lexico
 
     internal sealed class Context : IContext
     {
-        private Context() {}
+        private Context() {
+            trace = null!;
+            cache = null!;
+            Text = null!;
+        }
 
         private Context? parent;
-        private IParser parser;
-        private string? name;
+        private IParser? parser;
         private ITrace trace;
         private Dictionary<IParser, (bool Success, object? Value, int Length)> cache;
 
@@ -73,13 +76,12 @@ namespace Lexico
             return obj;
         }
 
-        public void Dispose()
+        private void Release()
         {
             parent = null;
-            parser = null;
-            name = null;
-            trace = null;
-            cache = null;
+            parser = null!;
+            trace = null!;
+            cache = null!;
             lock (pool) {
                 pool.Push(this);
             }
@@ -131,7 +133,6 @@ namespace Lexico
             if (concrete) {
                 var child = Get();
                 child.parser = parser;
-                child.name = name;
                 child.cache = cache;
                 newContext = child;
             }
@@ -147,15 +148,24 @@ namespace Lexico
                 : Text.AsSpan().Slice(Position, Math.Max(1, newContext.Position - Position));
             trace.Pop(parser, result, value, chars);
 
-            // If it failed, remember it and restore the previous state
-            if (!result) {
-                if (concrete)
-                    cache.Add(parser, (false, null, 0));
-                newContext = this;
-                value = prevValue;
-            } else {
-                if (concrete)
+            // Remember the result
+            if (concrete)
+            {
+                if (result) {
                     cache[parser] = (true, value, newContext.Position - Position);
+                } else {
+                    cache.Add(parser, (false, null, 0));
+                }
+            }
+            // Restore the last Value on failure
+            value = result ? value : prevValue;
+
+            // We release and 'pop' the created context if:
+            //   - the parse failed (we revert to the last state)
+            //   - nothing was consumed (to not unnecessarily grow the stack)
+            if (!result || newContext.Position == Position) {
+                ((Context)newContext).Release();
+                newContext = this;
             }
             return result;
         }
