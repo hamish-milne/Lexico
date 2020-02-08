@@ -1,32 +1,32 @@
 using System;
 using System.Reflection;
+using static System.AttributeTargets;
 
 namespace Lexico
 {
-    public class EOFAfterAttribute : TermAttribute
+    [AttributeUsage(Class | Struct, AllowMultiple = false)]
+    public class TopLevelAttribute : TermAttribute
     {
-        public override int Priority => 90;
+        public override int Priority => 110;
         public override IParser Create(MemberInfo member, Func<IParser> child)
         {
-            var c = child();
-            if (c is EOFParser eof) {
-                return eof;
+            if (member == typeof(EOF)) {
+                return EOFParser.Instance;
             }
-            return new EOFParser(c);
+            return new SurroundParser(null, child(), EOFParser.Instance);
         }
     }
 
+    [TopLevel] public struct EOF {}
+
     internal class EOFParser : IParser
     {
-        public EOFParser(IParser child) {
-            this.child = child;
-        }
-        private readonly IParser child;
+        public static EOFParser Instance { get; } = new EOFParser();
+        private EOFParser() {}
 
-        public bool Matches(ref IContext context, ref object? value) =>
-            child.MatchChild(null, ref context, ref value)
-            && !context.Peek(0).HasValue;
+        public bool Matches(ref IContext context, ref object? value)
+            => !context.Peek(0).HasValue;
 
-        public override string ToString() => $"{child}>EOF";
+        public override string ToString() => "EOF";
     }
 }
