@@ -20,11 +20,14 @@ namespace Lexico
 
     internal sealed class Context : IContext
     {
-        private Context() {}
+        private Context() {
+            trace = null!;
+            cache = null!;
+            Text = null!;
+        }
 
         private Context? parent;
-        private IParser parser;
-        private string? name;
+        private IParser? parser;
         private ITrace trace;
         private Dictionary<IParser, (bool, object?, int)> cache;
 
@@ -76,10 +79,9 @@ namespace Lexico
         private void Release()
         {
             parent = null;
-            parser = null;
-            name = null;
-            trace = null;
-            cache = null;
+            parser = null!;
+            trace = null!;
+            cache = null!;
             lock (pool) {
                 pool.Push(this);
             }
@@ -131,7 +133,6 @@ namespace Lexico
             if (concrete) {
                 var child = Get();
                 child.parser = parser;
-                child.name = name;
                 child.cache = cache;
                 newContext = child;
             }
@@ -151,6 +152,7 @@ namespace Lexico
             if (!result) {
                 if (concrete)
                     cache.Add(parser, (false, null, 0));
+                ((Context)newContext).Release();
                 newContext = this;
                 value = prevValue;
             } else {
