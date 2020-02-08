@@ -27,7 +27,7 @@
     ☐ Explicit 'alternatives' attribute
     ☐ 'Excludes' attribute
     ☐ Priority attribute
-☐ Repeat min/max count?
+✔ Repeat min/max count? @done(20-02-08 22:47)
 ✔ Custom terminals @done(20-02-08 10:22)
 ✔ Punctuation attributes (instead of Unnamed) @done(20-02-08 22:39)
 ☐ UTF8 support
