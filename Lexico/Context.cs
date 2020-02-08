@@ -98,6 +98,9 @@ namespace Lexico
 
         public bool MatchChild(IParser? parser, string? name, out IContext newContext, ref object? value)
         {
+            if (cache == null) {
+                throw new ObjectDisposedException("The Context was released");
+            }
             // TODO: Don't do this:
             if (parser is UnaryParser u) {
                 parser = u.Inner;
@@ -163,7 +166,7 @@ namespace Lexico
             // We release and 'pop' the created context if:
             //   - the parse failed (we revert to the last state)
             //   - nothing was consumed (to not unnecessarily grow the stack)
-            if (!result || newContext.Position == Position) {
+            if (newContext != this && (!result || newContext.Position == Position)) {
                 ((Context)newContext).Release();
                 newContext = this;
             }
