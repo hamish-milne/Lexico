@@ -25,6 +25,9 @@ namespace Lexico
         public bool Matches(ref IContext context, ref object? value)
         {
             var str = context.Text;
+            if (context.Position >= str.Length) {
+                return false;
+            }
             var match = regex.Match(str, context.Position, str.Length - context.Position);
             if (match.Success) {
                 value = match.Value;
