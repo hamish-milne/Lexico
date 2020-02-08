@@ -148,16 +148,24 @@ namespace Lexico
                 : Text.AsSpan().Slice(Position, Math.Max(1, newContext.Position - Position));
             trace.Pop(parser, result, value, chars);
 
-            // If it failed, remember it and restore the previous state
-            if (!result) {
-                if (concrete)
+            // Remember the result
+            if (concrete)
+            {
+                if (result) {
+                    cache[parser] = (true, value, newContext.Position - Position);
+                } else {
                     cache.Add(parser, (false, null, 0));
+                }
+            }
+            // Restore the last Value on failure
+            value = result ? value : prevValue;
+
+            // We release and 'pop' the created context if:
+            //   - the parse failed (we revert to the last state)
+            //   - nothing was consumed (to not unnecessarily grow the stack)
+            if (!result || newContext.Position == Position) {
                 ((Context)newContext).Release();
                 newContext = this;
-                value = prevValue;
-            } else {
-                if (concrete)
-                    cache[parser] = (true, value, newContext.Position - Position);
             }
             return result;
         }
