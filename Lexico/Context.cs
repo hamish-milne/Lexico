@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Lexico
 {
-    public interface IContext : IDisposable
+    public interface IContext
     {
         string Text { get; }
         int Position { get; }
@@ -73,7 +73,7 @@ namespace Lexico
             return obj;
         }
 
-        public void Dispose()
+        private void Release()
         {
             parent = null;
             parser = null;

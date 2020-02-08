@@ -1,10 +1,35 @@
+using System.Reflection;
 using System;
+using static System.AttributeTargets;
 
 namespace Lexico
 {
-    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = false)]
+    [AttributeUsage(Property | Field, AllowMultiple = false)]
     public class OptionalAttribute : TermAttribute
     {
+        public override int Priority => 100;
+        public override IParser Create(MemberInfo member, Func<IParser> child)
+        {
+            IParser c;
+            if (member is Type t && t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>)) {
+                c = ParserCache.GetParser(t.GetGenericArguments()[0]);
+            } else {
+                c = child();
+            }
+            if (c is OptionalParser o) {
+                return o;
+            }
+            return new OptionalParser(c);
+        }
+
+        public override bool AddDefault(MemberInfo member)
+        {
+            // TODO: Also check for NullableAttribute(2) on members
+            if (member is Type t && t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>)) {
+                return true;
+            }
+            return false;
+        }
     }
 
     internal class OptionalParser : IParser

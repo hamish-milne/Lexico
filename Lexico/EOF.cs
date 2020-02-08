@@ -1,10 +1,20 @@
 using System;
-using static System.AttributeTargets;
+using System.Reflection;
 
 namespace Lexico
 {
-    [AttributeUsage(Field | Class, AllowMultiple = false)]
-    public class EOFAfterAttribute : TermAttribute { }
+    public class EOFAfterAttribute : TermAttribute
+    {
+        public override int Priority => 90;
+        public override IParser Create(MemberInfo member, Func<IParser> child)
+        {
+            var c = child();
+            if (c is EOFParser eof) {
+                return eof;
+            }
+            return new EOFParser(c);
+        }
+    }
 
     internal class EOFParser : IParser
     {

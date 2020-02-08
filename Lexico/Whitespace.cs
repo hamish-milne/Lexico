@@ -1,12 +1,19 @@
 using System;
+using System.Reflection;
 
 namespace Lexico
 {
-    public struct Whitespace {}
+    public class WhitespaceAttribute : TerminalAttribute
+    {
+        public override IParser Create(MemberInfo member) => WhitespaceParser.Instance;
+    }
+
+    [Whitespace] public struct Whitespace {}
 
     internal class WhitespaceParser : IParser
     {
-        private static readonly object ws = new Whitespace();
+        private WhitespaceParser() {}
+
         public static WhitespaceParser Instance { get; } = new WhitespaceParser();
 
         public bool Matches(ref IContext context, ref object? value)
@@ -18,9 +25,6 @@ namespace Lexico
                     idx++;
                     c = context.Peek(idx);
                 } while (c.HasValue && Char.IsWhiteSpace(c.Value));
-                if (value == null) {
-                    value = ws;
-                }
                 context = context.Advance(idx);
                 return true;
             } else {

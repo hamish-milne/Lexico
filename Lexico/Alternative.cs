@@ -1,8 +1,20 @@
 using System.Linq;
 using System;
+using System.Reflection;
 
 namespace Lexico
 {
+    public class AlternativeAttribute : TermAttribute
+    {
+        public override int Priority => 10;
+        public override IParser Create(MemberInfo member, Func<IParser> child)
+        {
+            return new AlternativeParser(member.GetMemberType());
+        }
+
+        public override bool AddDefault(MemberInfo member)
+            => member is Type t && (t.IsInterface || t.IsAbstract);
+    }
 
     internal class AlternativeParser : IParser
     {

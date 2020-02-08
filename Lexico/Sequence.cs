@@ -11,11 +11,21 @@ namespace Lexico
         public WhitespaceSeparatedAttribute() : base(typeof(Whitespace?)) {}
     }
 
+    public class SequenceAttribute : TermAttribute
+    {
+        public override int Priority => 0;
+        public override IParser Create(MemberInfo member, Func<IParser> child)
+            => new SequenceParser(member.GetMemberType(), null);
+
+        public override bool AddDefault(MemberInfo member) => member is Type;
+    }
+
     internal class SequenceParser : IParser
     {
-        public SequenceParser(Type type)
+        public SequenceParser(Type type, IParser? separator)
         {
-            this.type = type ?? throw new ArgumentNullException(nameof(type));
+            this.Type = type ?? throw new ArgumentNullException(nameof(type));
+            this.separator = separator;
             var typeHierachy = new List<Type>();
             var current = type;
             while (current != null && current != typeof(object))
@@ -40,20 +50,16 @@ namespace Lexico
             if (members.Length == 0) {
                 throw new ArgumentException($"Sequence {type} has no Terms");
             }
-            var sep = type.GetCustomAttribute<SeparatedByAttribute>(true);
-            if (sep != null) {
-                separator = ParserCache.GetParser(sep.Separator);
-            }
         }
 
-        private readonly Type type;
+        public Type Type { get; }
         private readonly (MemberInfo? member, IParser parser)[] members;
         private readonly IParser? separator;
 
         public bool Matches(ref IContext context, ref object? value)
         {
-            if (!type.IsInstanceOfType(value)) {
-                value = Activator.CreateInstance(type);
+            if (!Type.IsInstanceOfType(value)) {
+                value = Activator.CreateInstance(Type);
             }
             bool first = true;
             foreach (var (member, parser) in members) {
@@ -115,6 +121,6 @@ namespace Lexico
             };
         }
 
-        public override string ToString() => type.Name;
+        public override string ToString() => Type.Name;
     }
 }

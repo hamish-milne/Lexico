@@ -1,15 +1,19 @@
 using System;
+using System.Reflection;
 using static System.AttributeTargets;
 
 namespace Lexico
 {
-    [AttributeUsage(Field | Property | Class | Struct, AllowMultiple = true)]
     public class SurroundByAttribute : TermAttribute
     {
+        public override int Priority => 100;
         public SurroundByAttribute(Type surround) {
             Surround = surround ?? throw new ArgumentNullException(nameof(surround));
         }
         public Type Surround { get; }
+
+        public override IParser Create(MemberInfo member, Func<IParser> child)
+            => new SurroundParser(child(), this);
     }
 
     public class WhitespaceSurroundedAttribute : SurroundByAttribute
