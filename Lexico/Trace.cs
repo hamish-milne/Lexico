@@ -32,10 +32,13 @@ namespace Lexico
 
             if (success) {
                 sb.Append("\u2714").Append(" = ").Append(value ?? "<null>");
+                Console.ForegroundColor = ConsoleColor.Green;
             } else {
                 sb.Append("\u2717 (got `").Append(text.ToArray()).Append("`)");
+                Console.ForegroundColor = ConsoleColor.Red;
             }
             Console.WriteLine(sb);
+            Console.ForegroundColor = ConsoleColor.White;
         }
 
         public void Push(IParser parser, string? name)
@@ -54,7 +57,9 @@ namespace Lexico
             }
             sb.Append(parser?.ToString() ?? "<UNKNOWN>").Append(" {");
             indent++;
+            Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine(sb);
+            Console.ForegroundColor = ConsoleColor.White;
         }
     }
 }

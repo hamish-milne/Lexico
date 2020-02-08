@@ -1,6 +1,5 @@
 using System;
 using System.Reflection;
-using static System.AttributeTargets;
 
 namespace Lexico
 {
