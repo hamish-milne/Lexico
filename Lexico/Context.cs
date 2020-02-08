@@ -127,7 +127,7 @@ namespace Lexico
 
             // Acquire a child context
             // TODO: A better solution for choosing whether to push a parser onto the stack
-            var concrete = !(parser is AlternativeParser);
+            var concrete = !(parser is AlternativeParser) && !(parser is OptionalParser);
             if (concrete) {
                 var child = Get();
                 child.parser = parser;
