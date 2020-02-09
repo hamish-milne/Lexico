@@ -16,7 +16,7 @@ namespace Lexico
         public string Prefix { get; }
         public string Suffix { get; }
 
-        public override IParser Create(MemberInfo member, Func<IParser> child)
+        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
             => new SurroundParser(new LiteralParser(Prefix), child(), new LiteralParser(Suffix));
     }
 
@@ -24,9 +24,9 @@ namespace Lexico
     {
         public override int Priority => 100;
 
-        public override IParser Create(MemberInfo member, Func<IParser> child)
+        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
         {
-            var s = ParserCache.GetParser(typeof(Whitespace?));
+            var s = ParserCache.GetParser(typeof(Whitespace?), config);
             return new SurroundParser(s, child(), s);
         }
     }
@@ -37,7 +37,7 @@ namespace Lexico
         public string Value { get; }
         public override int Priority => 80;
 
-        public override IParser Create(MemberInfo member, Func<IParser> child)
+        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
             => new SurroundParser(new LiteralParser(Value), child(), null);
     }
 
@@ -47,7 +47,7 @@ namespace Lexico
         public string Value { get; }
         public override int Priority => 80;
 
-        public override IParser Create(MemberInfo member, Func<IParser> child)
+        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
             => new SurroundParser(null, child(), new LiteralParser(Value));
     }
 

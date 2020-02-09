@@ -4,7 +4,7 @@ using Lexico;
 
 namespace Json
 {
-    [WhitespaceSurrounded]
+    [WhitespaceSurrounded, MultiLine]
     public class JsonDocument
     {
         [Term] JsonValue value;

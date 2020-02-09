@@ -8,11 +8,11 @@ namespace Lexico
     public class OptionalAttribute : TermAttribute
     {
         public override int Priority => 100;
-        public override IParser Create(MemberInfo member, Func<IParser> child)
+        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
         {
             IParser c;
             if (member is Type t && t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>)) {
-                c = ParserCache.GetParser(t.GetGenericArguments()[0]);
+                c = ParserCache.GetParser(t.GetGenericArguments()[0], config);
             } else {
                 c = child();
             }

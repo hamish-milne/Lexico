@@ -7,9 +7,9 @@ namespace Lexico
     public class AlternativeAttribute : TermAttribute
     {
         public override int Priority => 10;
-        public override IParser Create(MemberInfo member, Func<IParser> child)
+        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
         {
-            return new AlternativeParser(member.GetMemberType());
+            return new AlternativeParser(member.GetMemberType(), config);
         }
 
         public override bool AddDefault(MemberInfo member)
@@ -18,12 +18,12 @@ namespace Lexico
 
     internal class AlternativeParser : IParser
     {
-        public AlternativeParser(Type baseType)
+        public AlternativeParser(Type baseType, IConfig config)
         {
             this.baseType = baseType;
             options = baseType.Assembly.GetTypes()
                 .Where(t => (t.IsClass || t.IsValueType) && !t.IsAbstract && baseType.IsAssignableFrom(t))
-                .Select(t => ParserCache.GetParser(t))
+                .Select(t => ParserCache.GetParser(t, config))
                 .ToArray();
             if (options.Length == 0) {
                 throw new ArgumentException($"{baseType} has no concrete options");

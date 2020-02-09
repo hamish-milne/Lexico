@@ -8,7 +8,7 @@ namespace Lexico
     public class TopLevelAttribute : TermAttribute
     {
         public override int Priority => 110;
-        public override IParser Create(MemberInfo member, Func<IParser> child)
+        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
         {
             if (member == typeof(EOF)) {
                 return EOFParser.Instance;

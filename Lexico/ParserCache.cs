@@ -10,7 +10,7 @@ namespace Lexico
     public class TermAttribute : Attribute
     {
         public virtual int Priority => -10;
-        public virtual IParser Create(MemberInfo member, Func<IParser> child) => child();
+        public virtual IParser Create(MemberInfo member, Func<IParser> child, IConfig config) => child();
         public virtual bool AddDefault(MemberInfo member) => false;
     }
 
@@ -59,7 +59,7 @@ namespace Lexico
         private static readonly Dictionary<MemberInfo, IParser> cache
             = new Dictionary<MemberInfo, IParser>();
 
-        public static IParser GetParser(MemberInfo member)
+        public static IParser GetParser(MemberInfo member, IConfig? config)
         {
             // We need a global lock to detect recursion
             lock (parserStack) {
@@ -70,7 +70,7 @@ namespace Lexico
                         return placeholder;
                     } else {
                         parserStack.Push(member);
-                        parser = GetParserUncached(member);
+                        parser = GetParserUncached(member, config);
                         parserStack.Pop();
                         if (cache.TryGetValue(member, out var tmp) && tmp is UnaryParser placeholder) {
                             placeholder.Set(parser);
@@ -90,26 +90,47 @@ namespace Lexico
             .OrderBy(a => a.Priority)
             .ToArray();
 
-        static IParser GetParserUncached(MemberInfo member)
+        static IParser GetParserUncached(MemberInfo member, IConfig? config)
         {
             var defaults = new Stack<TermAttribute>(defaultAttrs);
             var attrs = new Stack<TermAttribute>(member.GetCustomAttributes<TermAttribute>(true).OrderBy(a => a.Priority));
+            var mConfig = new Config(member, config);
             IParser Next() {
                 if (attrs.Count > 0) {
-                    return attrs.Pop().Create(member, Next);
+                    return attrs.Pop().Create(member, Next, mConfig);
                 }
                 while (defaults.Count > 0) {
                     var d = defaults.Pop();
                     if (d.AddDefault(member)) {
-                        return d.Create(member, Next);
+                        return d.Create(member, Next, mConfig);
                     }
                 }
                 if (!(member is Type)) {
-                    return GetParser(member.GetMemberType());
+                    return GetParser(member.GetMemberType(), mConfig);
                 }
                 throw new ArgumentException($"Incomplete parser definition for {member}");
             }
             return Next();
+        }
+
+        private class Config : IConfig
+        {
+            public Config(MemberInfo member, IConfig? parent) {
+                this.parent = parent;
+                attributes = member.GetCustomAttributes().ToArray();
+            }
+            private readonly IConfig? parent;
+            private readonly Attribute[] attributes;
+
+            public T Get<T>()
+            {
+                return attributes.OfType<IConfig<T>>()
+                #pragma warning disable 8604
+                    .Aggregate(parent == null ? default : parent.Get<T>(), (value, conf) => {
+                        conf.ApplyConfig(ref value);
+                        return value;
+                    });
+            }
         }
     }
 }

@@ -12,14 +12,15 @@ namespace Lexico
 
         public string Pattern { get; }
 
-        public override IParser Create(MemberInfo member) => new RegexParser(Pattern);
+        public override IParser Create(MemberInfo member, IConfig config)
+            => new RegexParser(Pattern, config.Get<RegexOptions>() | RegexOptions.Compiled);
     }
 
     internal class RegexParser : IParser
     {
         // TODO: Case-insensitive etc.?
-        public RegexParser(string pattern) {
-            regex = new Regex($"^{pattern}", RegexOptions.Compiled);
+        public RegexParser(string pattern, RegexOptions options) {
+            regex = new Regex($"^{pattern}", options);
         }
         private readonly Regex regex;
         public bool Matches(ref IContext context, ref object? value)

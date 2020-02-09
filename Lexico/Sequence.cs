@@ -14,15 +14,15 @@ namespace Lexico
     public class SequenceAttribute : TermAttribute
     {
         public override int Priority => 0;
-        public override IParser Create(MemberInfo member, Func<IParser> child)
-            => new SequenceParser(member.GetMemberType(), null);
+        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
+            => new SequenceParser(member.GetMemberType(), null, config);
 
         public override bool AddDefault(MemberInfo member) => member is Type;
     }
 
     internal class SequenceParser : IParser
     {
-        public SequenceParser(Type type, IParser? separator)
+        public SequenceParser(Type type, IParser? separator, IConfig config)
         {
             this.Type = type ?? throw new ArgumentNullException(nameof(type));
             this.separator = separator;
@@ -63,10 +63,11 @@ namespace Lexico
                 throw new ArgumentException($"Sequence {type} has no Terms");
             }
             this.members = members
-                .Select(m => MemberType(m) == typeof(Unnamed)
-                    ? (null, ParserCache.GetParser(m))
-                    : (m, ParserCache.GetParser(m))
-                ).ToArray();
+                .Select(m => (
+                    MemberType(m) == typeof(Unnamed) ? null : m,
+                    ParserCache.GetParser(m, config)
+                ))
+                .ToArray();
         }
 
         public Type Type { get; }

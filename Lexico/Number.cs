@@ -7,7 +7,7 @@ namespace Lexico
 {
     public class NumberAttribute : TerminalAttribute
     {
-        public override IParser Create(MemberInfo member)
+        public override IParser Create(MemberInfo member, IConfig config)
         {
             return member.GetMemberType() switch
             {
