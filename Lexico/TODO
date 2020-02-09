@@ -22,7 +22,7 @@
     ✔ Opt-in with ParseAttribute/TerminalAttribute; re-enable Properties @done(20-02-05 10:53)
     ✔ Make Buffer more opaque @done(20-02-07 00:35)
     ☐ Use 'NullableAttribute(2)' for Optional
-    ☐ Improve Sequence member searching and ordering
+    ✔ Improve Sequence member searching and ordering @done(20-02-09 12:22)
 ☐ Better Alternatives
     ☐ Explicit 'alternatives' attribute
     ☐ 'Excludes' attribute

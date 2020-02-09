@@ -36,20 +36,37 @@ namespace Lexico
 
             typeHierachy.Reverse();
 
-            members = typeHierachy.SelectMany(t =>
+            var rawMembers = typeHierachy.SelectMany(t =>
                 t.GetMembers(Instance | Public | NonPublic)
                     .Where(m => m is FieldInfo || m is PropertyInfo)
-                    // Only include leaf type or non-inherited members
-                    .Where(m => m.ReflectedType == type || IsPrivate(m))
                     .Where(m => m.GetCustomAttributes<TermAttribute>(true).Any())
-                    .Select(m => MemberType(m) == typeof(Unnamed)
-                        ? (null, ParserCache.GetParser(m))
-                        : (m, ParserCache.GetParser(m))
-                    )
-            ).ToArray();
-            if (members.Length == 0) {
+            );
+            var members = new List<MemberInfo>();
+            // Combine virtual/override members into one list
+            foreach (var m in rawMembers)
+            {
+                if (!IsPrivate(m)) {
+                    int i;
+                    for (i = 0; i < members.Count; i++) {
+                        if (!IsPrivate(members[i]) && members[i].Name == m.Name) {
+                            members[i] = m;
+                            break;
+                        }
+                    }
+                    if (i < members.Count) {
+                        continue;
+                    }
+                }
+                members.Add(m);
+            }
+            if (members.Count == 0) {
                 throw new ArgumentException($"Sequence {type} has no Terms");
             }
+            this.members = members
+                .Select(m => MemberType(m) == typeof(Unnamed)
+                    ? (null, ParserCache.GetParser(m))
+                    : (m, ParserCache.GetParser(m))
+                ).ToArray();
         }
 
         public Type Type { get; }
