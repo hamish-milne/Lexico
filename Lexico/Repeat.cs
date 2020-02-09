@@ -2,29 +2,9 @@ using System.Reflection;
 using System.Collections;
 using System;
 using System.Collections.Generic;
-using static System.AttributeTargets;
 
 namespace Lexico
 {
-    [AttributeUsage(Field | Property | Class | Struct, AllowMultiple = false)]
-    public class SeparatedByAttribute : TermAttribute
-    {
-        public SeparatedByAttribute(Type separator) {
-            Separator = separator ?? throw new ArgumentNullException(nameof(separator));
-        }
-        public Type Separator { get; }
-
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
-        {
-            var c = child();
-            var sep = ParserCache.GetParser(Separator, config);
-            return c switch {
-                RepeatParser r => new RepeatParser(r.ListType, sep, r.Min, r.Max, config),
-                SequenceParser s => new SequenceParser(s.Type, sep, config),
-                _ => throw new ArgumentException($"Separator not valid on {c}")
-            };
-        }
-    }
 
     public class RepeatAttribute : TermAttribute
     {
@@ -33,7 +13,7 @@ namespace Lexico
         public override int Priority => 20;
         public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
             => new RepeatParser(member.GetMemberType(), null,
-            Min > 0 ? Min : default(int?), Max < Int32.MaxValue ? Max : default(int?), config);
+            Min > 0 ? Min : default(int?), Max < Int32.MaxValue ? Max : default(int?));
 
         public override bool AddDefault(MemberInfo member)
             => member is Type t && typeof(ICollection).IsAssignableFrom(t);
@@ -41,10 +21,10 @@ namespace Lexico
 
     internal class RepeatParser : IParser
     {
-        public RepeatParser(Type listType, IParser? separator, int? min, int? max, IConfig config)
+        public RepeatParser(Type listType, IParser? separator, int? min, int? max)
         {
             this.ListType = listType ?? throw new ArgumentNullException(nameof(listType));
-            element = ParserCache.GetParser(listType.IsArray ? listType.GetElementType() : listType.GetGenericArguments()[0], config);
+            element = ParserCache.GetParser(listType.IsArray ? listType.GetElementType() : listType.GetGenericArguments()[0]);
             if (!typeof(IList).IsAssignableFrom(listType)) {
                 addMethod = listType.GetMethod("Add")
                     ?? throw new ArgumentException($"{listType} does not implement IList and has no Add method");

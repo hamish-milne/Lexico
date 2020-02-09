@@ -6,23 +6,18 @@ using static System.Reflection.BindingFlags;
 
 namespace Lexico
 {
-    public class WhitespaceSeparatedAttribute : SeparatedByAttribute
-    {
-        public WhitespaceSeparatedAttribute() : base(typeof(Whitespace?)) {}
-    }
-
     public class SequenceAttribute : TermAttribute
     {
         public override int Priority => 0;
         public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
-            => new SequenceParser(member.GetMemberType(), null, config);
+            => new SequenceParser(member.GetMemberType(), null);
 
         public override bool AddDefault(MemberInfo member) => member is Type;
     }
 
     internal class SequenceParser : IParser
     {
-        public SequenceParser(Type type, IParser? separator, IConfig config)
+        public SequenceParser(Type type, IParser? separator)
         {
             this.Type = type ?? throw new ArgumentNullException(nameof(type));
             this.separator = separator;
@@ -65,7 +60,7 @@ namespace Lexico
             this.members = members
                 .Select(m => (
                     MemberType(m) == typeof(Unnamed) ? null : m,
-                    ParserCache.GetParser(m, config)
+                    ParserCache.GetParser(m)
                 ))
                 .ToArray();
         }

@@ -59,7 +59,7 @@ namespace Lexico
         private static readonly Dictionary<MemberInfo, IParser> cache
             = new Dictionary<MemberInfo, IParser>();
 
-        public static IParser GetParser(MemberInfo member, IConfig? config)
+        public static IParser GetParser(MemberInfo member)
         {
             // We need a global lock to detect recursion
             lock (parserStack) {
@@ -70,7 +70,7 @@ namespace Lexico
                         return placeholder;
                     } else {
                         parserStack.Push(member);
-                        parser = GetParserUncached(member, config);
+                        parser = GetParserUncached(member);
                         parserStack.Pop();
                         if (cache.TryGetValue(member, out var tmp) && tmp is UnaryParser placeholder) {
                             placeholder.Set(parser);
@@ -90,11 +90,11 @@ namespace Lexico
             .OrderBy(a => a.Priority)
             .ToArray();
 
-        static IParser GetParserUncached(MemberInfo member, IConfig? config)
+        static IParser GetParserUncached(MemberInfo member)
         {
             var defaults = new Stack<TermAttribute>(defaultAttrs);
             var attrs = new Stack<TermAttribute>(member.GetCustomAttributes<TermAttribute>(true).OrderBy(a => a.Priority));
-            var mConfig = new Config(member, config);
+            var mConfig = GetConfig(member) ?? Config.Default;
             IParser Next() {
                 if (attrs.Count > 0) {
                     return attrs.Pop().Create(member, Next, mConfig);
@@ -106,7 +106,7 @@ namespace Lexico
                     }
                 }
                 if (!(member is Type)) {
-                    return GetParser(member.GetMemberType(), mConfig);
+                    return GetParser(member.GetMemberType());
                 }
                 throw new ArgumentException($"Incomplete parser definition for {member}");
             }
@@ -115,12 +115,13 @@ namespace Lexico
 
         private class Config : IConfig
         {
-            public Config(MemberInfo member, IConfig? parent) {
+            public static Config Default { get; } = new Config(Array.Empty<IConfigBase>(), null);
+            public Config(IConfigBase[] attributes, IConfig? parent) {
                 this.parent = parent;
-                attributes = member.GetCustomAttributes().ToArray();
+                this.attributes = attributes;
             }
             private readonly IConfig? parent;
-            private readonly Attribute[] attributes;
+            private readonly IConfigBase[] attributes;
 
             public T Get<T>(T defaultValue)
             {
@@ -131,6 +132,23 @@ namespace Lexico
                         return value;
                     });
             }
+        }
+
+        private static IConfig? GetConfig(MemberInfo member)
+        {
+            IConfig? GetConfigInternal(MemberInfo? m, IConfig? parent)
+            {
+                if (m == null) {
+                    return parent;
+                }
+                var attrs = m.GetCustomAttributes().OfType<IConfigBase>().ToArray();
+                if (attrs.Length == 0) {
+                    return parent;
+                }
+                return new Config(attrs, parent);
+            }
+            return GetConfigInternal(member, GetConfigInternal(member.ReflectedType,
+                member is Type ? null : GetConfigInternal(member.GetMemberType(), null)));
         }
     }
 }

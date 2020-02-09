@@ -26,7 +26,7 @@ namespace Lexico
 
         public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
         {
-            var s = ParserCache.GetParser(typeof(Whitespace?), config);
+            var s = new OptionalParser(new WhitespaceParser(config));
             return new SurroundParser(s, child(), s);
         }
     }

@@ -12,7 +12,7 @@ namespace Lexico
         {
             IParser c;
             if (member is Type t && t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>)) {
-                c = ParserCache.GetParser(t.GetGenericArguments()[0], config);
+                c = ParserCache.GetParser(t.GetGenericArguments()[0]);
             } else {
                 c = child();
             }

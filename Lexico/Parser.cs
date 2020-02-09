@@ -17,7 +17,7 @@ namespace Lexico
         {
             object? value = null;
             IContext context = Context.CreateRoot(str, trace);
-            var result = ParserCache.GetParser(typeof(T), null).MatchChild(null, ref context, ref value);
+            var result = ParserCache.GetParser(typeof(T)).MatchChild(null, ref context, ref value);
             output = result ? (T)value! : default!;
             return result;
         }

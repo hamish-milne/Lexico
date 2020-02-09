@@ -12,7 +12,9 @@ namespace Lexico
         T Get<T>(T defaultValue);
     }
 
-    public interface IConfig<T>
+    public interface IConfigBase {}
+
+    public interface IConfig<T> : IConfigBase
     {
         void ApplyConfig(ref T value);
     }
