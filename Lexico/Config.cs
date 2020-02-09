@@ -9,7 +9,7 @@ namespace Lexico
 {
     public interface IConfig
     {
-        T Get<T>();
+        T Get<T>(T defaultValue);
     }
 
     public interface IConfig<T>

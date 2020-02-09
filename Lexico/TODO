@@ -11,13 +11,13 @@
       e.g. count how many nested 'Add' expressions we can have without advancing. User specifies the number
 ✔ EOF terminal @done(20-02-05 10:47)
     ✔ Allow implicit EOF for top-level (i.e. force the entire string to be parsed) @done(20-02-05 10:47)
-☐ EOL terminal
-    ☐ Choose whether Whitespace includes EOLs
-☐ More number types
+✔ EOL terminal @done(20-02-09 20:34)
+    ✔ Choose whether Whitespace includes EOLs @done(20-02-09 20:34)
+✔ More number types @done(20-02-09 21:46)
     double, short, uint etc.
-☐ Terminal attributes
-    ☐ NumberStyles
-    ☐ RegexOptions
+✔ Terminal attributes @done(20-02-09 21:46)
+    ✔ NumberStyles @done(20-02-09 21:46)
+    ✔ RegexOptions @done(20-02-09 20:34)
 ☐ API fixes
     ✔ Opt-in with ParseAttribute/TerminalAttribute; re-enable Properties @done(20-02-05 10:53)
     ✔ Make Buffer more opaque @done(20-02-07 00:35)

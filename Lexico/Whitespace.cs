@@ -15,7 +15,7 @@ namespace Lexico
     internal class WhitespaceParser : IParser
     {
         public WhitespaceParser(IConfig config) {
-            multiline = (config.Get<RegexOptions>() & RegexOptions.Multiline) != 0;
+            multiline = (config.Get<RegexOptions>(default) & RegexOptions.Multiline) != 0;
         }
 
         private readonly bool multiline;

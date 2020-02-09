@@ -122,11 +122,11 @@ namespace Lexico
             private readonly IConfig? parent;
             private readonly Attribute[] attributes;
 
-            public T Get<T>()
+            public T Get<T>(T defaultValue)
             {
                 return attributes.OfType<IConfig<T>>()
                 #pragma warning disable 8604
-                    .Aggregate(parent == null ? default : parent.Get<T>(), (value, conf) => {
+                    .Aggregate(parent == null ? defaultValue : parent.Get(defaultValue), (value, conf) => {
                         conf.ApplyConfig(ref value);
                         return value;
                     });
