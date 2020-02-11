@@ -5,7 +5,7 @@ namespace Lexico
 {
     public class EOFAfterAttribute : TermAttribute
     {
-        public override int Priority => 90;
+        public override int Priority => 1000;
         public override IParser Create(MemberInfo member, Func<IParser> child)
         {
             var c = child();
