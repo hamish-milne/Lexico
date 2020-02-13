@@ -3,12 +3,31 @@ using System.Text;
 
 namespace Lexico
 {
+    /// <summary>
+    /// Allows logging the results of each parser step for debugging, error reporting etc.
+    /// </summary>
     public interface ITrace
     {
+        /// <summary>
+        /// Indicates that a child parser is being tested
+        /// </summary>
+        /// <param name="parser">The parser</param>
+        /// <param name="name">The parser's name (relative to its parent)</param>
         void Push(IParser parser, string? name);
+
+        /// <summary>
+        /// Records the result of the matched Push record
+        /// </summary>
+        /// <param name="parser">The parser</param>
+        /// <param name="success">True if matching succeeded</param>
+        /// <param name="value">The resultant value</param>
+        /// <param name="text">The total matched text</param>
         void Pop(IParser parser, bool success, object? value, ReadOnlySpan<char> text);
     }
 
+    /// <summary>
+    /// A Trace that writes directly and completely to the console (with colours)
+    /// </summary>
     public sealed class ConsoleTrace : ITrace
     {
         int indent = 0;

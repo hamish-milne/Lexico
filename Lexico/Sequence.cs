@@ -6,6 +6,10 @@ using static System.Reflection.BindingFlags;
 
 namespace Lexico
 {
+    /// <summary>
+    /// Matches each Term member in a class/struct, in the order they were declared.
+    /// Applied by default to non-abstract classes/structs.
+    /// </summary>
     public class SequenceAttribute : TermAttribute
     {
         public override int Priority => 0;

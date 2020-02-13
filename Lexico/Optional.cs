@@ -4,6 +4,11 @@ using static System.AttributeTargets;
 
 namespace Lexico
 {
+    /// <summary>
+    /// Indicates that this member does not need to be matched. If the parsing fails, the member's value is unchanged
+    /// and the cursor is reset to its last position before continuing onward.
+    /// Applied by default to Nullable`1 types.
+    /// </summary>
     [AttributeUsage(Property | Field, AllowMultiple = false)]
     public class OptionalAttribute : TermAttribute
     {

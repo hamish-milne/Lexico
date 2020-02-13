@@ -3,13 +3,18 @@ using System.Reflection;
 
 namespace Lexico
 {
-
+    /// <summary>
+    /// Matches a new-line string (LF or CRLF). No output
+    /// </summary>
     public class EOLAttribute : TermAttribute
     {
         public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
             => EOLParser.Instance;
     }
 
+    /// <summary>
+    /// Matches a new-line string (LF or CRLF). No output
+    /// </summary>
     [EOL] public struct EOL {}
 
     internal class EOLParser : IParser

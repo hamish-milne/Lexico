@@ -3,6 +3,10 @@ using System.Reflection;
 
 namespace Lexico
 {
+    /// <summary>
+    /// Adds the given literals before and after the parser (ignoring any separators).
+    /// Outputs the child parser's result.
+    /// </summary>
     public class SurroundByAttribute : TermAttribute
     {
         public override int Priority => 100;
@@ -20,6 +24,10 @@ namespace Lexico
             => new SurroundParser(new LiteralParser(Prefix), child(), new LiteralParser(Suffix));
     }
 
+    /// <summary>
+    /// Surrounds the parser with optional whitespace (ignoring any separators).
+    /// Outputs the child parser's result.
+    /// </summary>
     public class WhitespaceSurroundedAttribute : TermAttribute
     {
         public override int Priority => 100;
@@ -31,6 +39,10 @@ namespace Lexico
         }
     }
 
+    /// <summary>
+    /// Prefixes the parser with the given literal (ignoring any separators).
+    /// Outputs the child parser's result.
+    /// </summary>
     public class PrefixAttribute : TermAttribute
     {
         public PrefixAttribute(string value) => Value = value;
@@ -41,6 +53,10 @@ namespace Lexico
             => new SurroundParser(new LiteralParser(Value), child(), null);
     }
 
+    /// <summary>
+    /// Appends the given literal to the parser (ignoring any separators).
+    /// Outputs the child parser's result.
+    /// </summary>
     public class SuffixAttribute : TermAttribute
     {
         public SuffixAttribute(string value) => Value = value;

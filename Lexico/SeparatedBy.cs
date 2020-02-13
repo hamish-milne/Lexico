@@ -4,6 +4,9 @@ using static System.AttributeTargets;
 
 namespace Lexico
 {
+    /// <summary>
+    /// Applied to any Repeat or Sequence, inserts the given parser between each element
+    /// </summary>
     [AttributeUsage(Field | Property | Class | Struct, AllowMultiple = false)]
     public class SeparatedByAttribute : TermAttribute
     {
@@ -26,6 +29,9 @@ namespace Lexico
         }
     }
 
+    /// <summary>
+    /// Applied to any Repeat or Sequence, inserts optional whitespace between each element
+    /// </summary>
     public class WhitespaceSeparatedAttribute : SeparatedByAttribute
     {
         public WhitespaceSeparatedAttribute() : base(typeof(Whitespace?)) {}

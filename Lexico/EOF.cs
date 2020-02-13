@@ -4,6 +4,9 @@ using static System.AttributeTargets;
 
 namespace Lexico
 {
+    /// <summary>
+    /// Indicates that this parser should match the entire string, allowing no left-over text
+    /// </summary>
     [AttributeUsage(Class | Struct, AllowMultiple = false)]
     public class TopLevelAttribute : TermAttribute
     {
@@ -17,6 +20,9 @@ namespace Lexico
         }
     }
 
+    /// <summary>
+    /// Only matches the end-of-file (i.e. expects the Position to be past the end of the text). No output
+    /// </summary>
     [TopLevel] public struct EOF {}
 
     internal class EOFParser : IParser

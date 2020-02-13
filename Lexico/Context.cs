@@ -3,17 +3,60 @@ using System.Collections.Generic;
 
 namespace Lexico
 {
+    /// <summary>
+    /// The parse context; orchestrates the parser behaviour. Typically handles caching and recursion.
+    /// </summary>
     public interface IContext
     {
+        /// <summary>
+        /// The input text in its entirety
+        /// </summary>
+        /// <value></value>
         string Text { get; }
+
+        /// <summary>
+        /// The current position within the input string
+        /// </summary>
+        /// <value></value>
         int Position { get; }
+
+        /// <summary>
+        /// Looks ahead of the current position by the given amount
+        /// </summary>
+        /// <param name="offset"></param>
+        /// <returns>The character at the offset, or Null if past the EOF</returns>
         char? Peek(int offset);
+
+        /// <summary>
+        /// Advances the text position by the given amount, returning a new Context
+        /// </summary>
+        /// <param name="length"></param>
+        /// <returns></returns>
         IContext Advance(int length);
+
+        /// <summary>
+        /// Performs a match with the given parser. This method allows caching and recursion to be managed
+        /// as needed.
+        /// </summary>
+        /// <param name="parser">The parser in question</param>
+        /// <param name="name">A human-readable identifier for the child relationship, for the log</param>
+        /// <param name="newContext">The context after parsing. May be different even on failure</param>
+        /// <param name="value">The parser output value</param>
+        /// <returns>True if the text matches, otherwise false</returns>
         bool MatchChild(IParser? parser, string? name, out IContext newContext, ref object? value);
     }
 
     public static class ContextExtensions
     {
+        /// <summary>
+        /// Performs a match with the given parser. This method allows caching and recursion to be managed
+        /// as needed. (This is a convenience extension method for IContext.MatchChild)
+        /// </summary>
+        /// <param name="parser">The parser in question</param>
+        /// <param name="name">A human-readable identifier for the child relationship, for the log</param>
+        /// <param name="newContext">The context after parsing. May be different even on failure</param>
+        /// <param name="value">The parser output value</param>
+        /// <returns>True if the text matches, otherwise false</returns>
         public static bool MatchChild(this IParser? parser, string? name, ref IContext context, ref object? value)
             => context.MatchChild(parser, name, out context, ref value);
     }

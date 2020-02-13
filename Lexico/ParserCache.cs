@@ -6,11 +6,33 @@ using static System.AttributeTargets;
 
 namespace Lexico
 {
+    /// <summary>
+    /// Apply to a Member to include it in the parent parser. Generates Parser implementations for members it is applied to.
+    /// </summary>
     [AttributeUsage(Field | Property | Class | Struct, AllowMultiple = true)]
     public class TermAttribute : Attribute
     {
+        /// <summary>
+        /// Determines the order that parsers are generated in. Higher priority attributes are evaluated first,
+        /// and therefore applied last in the chain.
+        /// </summary>
         public virtual int Priority => -10;
+
+        /// <summary>
+        /// Creates a Parser based on this attribute
+        /// </summary>
+        /// <param name="member">The Member (Field, Property or Type) the attribute was applied to</param>
+        /// <param name="child">Call this function to get the previous parser in the chain</param>
+        /// <param name="config">Allows getting contextual configuration values
+        /// (typically from attributes on the member or containing type)</param>
+        /// <returns>The constructed Parser</returns>
         public virtual IParser Create(MemberInfo member, Func<IParser> child, IConfig config) => child();
+
+        /// <summary>
+        /// Check if the attribute should be implicitly applied to a member
+        /// </summary>
+        /// <param name="member">The member in question</param>
+        /// <returns></returns>
         public virtual bool AddDefault(MemberInfo member) => false;
     }
 

@@ -4,12 +4,20 @@ using System.Reflection;
 
 namespace Lexico
 {
+    /// <summary>
+    /// Matches any amount of whitespace (at least one character).
+    /// New-lines do not count by default; see the MultiLine attribute
+    /// </summary>
     public class WhitespaceAttribute : TerminalAttribute
     {
         public override IParser Create(MemberInfo member, IConfig config)
             => new WhitespaceParser(config);
     }
 
+    /// <summary>
+    /// Matches any amount of whitespace (at least one character).
+    /// New-lines do not count by default; see the MultiLine attribute
+    /// </summary>
     [Whitespace] public struct Whitespace {}
 
     internal class WhitespaceParser : IParser

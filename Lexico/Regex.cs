@@ -4,6 +4,9 @@ using System;
 
 namespace Lexico
 {
+    /// <summary>
+    /// Matches a regular expression, using the RegexOptions configuration. Outputs the matched text
+    /// </summary>
     public class RegexAttribute : TerminalAttribute
     {
         public RegexAttribute(string pattern) {
@@ -18,7 +21,6 @@ namespace Lexico
 
     internal class RegexParser : IParser
     {
-        // TODO: Case-insensitive etc.?
         public RegexParser(string pattern, RegexOptions options) {
             regex = new Regex($"^{pattern}", options);
         }

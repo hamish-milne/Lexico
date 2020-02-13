@@ -4,6 +4,10 @@ using System.Reflection;
 
 namespace Lexico
 {
+    /// <summary>
+    /// Matches the first non-abstract class that is assignable to the member.
+    /// Applied by default to abstract classes and interfaces.
+    /// </summary>
     public class AlternativeAttribute : TermAttribute
     {
         public override int Priority => 10;

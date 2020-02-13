@@ -5,6 +5,9 @@ using static System.AttributeTargets;
 
 namespace Lexico
 {
+    /// <summary>
+    /// Base class for Terminals - the left nodes of the parse tree
+    /// </summary>
     [AttributeUsage(Property | Field | Class | Struct, AllowMultiple = false)]
     public abstract class TerminalAttribute : TermAttribute
     {
@@ -17,6 +20,9 @@ namespace Lexico
         }
     }
 
+    /// <summary>
+    /// Matches a string literal exactly. Outputs the matched text
+    /// </summary>
     public class LiteralAttribute : TerminalAttribute
     {
         public LiteralAttribute(string value) {
@@ -29,6 +35,10 @@ namespace Lexico
         }
     }
 
+    /// <summary>
+    /// Matches a string literal read from the value of a named String Property. This allows the literal's value
+    /// to be different for derived classes. Outputs the matched text
+    /// </summary>
     public class IndirectLiteralAttribute : TerminalAttribute
     {
         public IndirectLiteralAttribute(string property) {

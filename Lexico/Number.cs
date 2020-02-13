@@ -8,6 +8,11 @@ using static System.Globalization.NumberStyles;
 
 namespace Lexico
 {
+    /// <summary>
+    /// Matches an Arabic numeral string. The exact form depends on the member type and/or NumberStyles config.
+    /// For example 'float' members allow decimal points, but 'int' members do not.
+    /// Applied by default to all built-in arithmetic types.
+    /// </summary>
     public class NumberAttribute : TerminalAttribute
     {
         public override IParser Create(MemberInfo member, IConfig config)
@@ -85,7 +90,7 @@ namespace Lexico
             }
             regex = new Regex(pattern.ToString(), RegexOptions.Compiled);
         }
-        
+
         private readonly MethodInfo parseMethod;
         private readonly Regex regex;
 

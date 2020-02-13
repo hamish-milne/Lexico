@@ -5,12 +5,27 @@ using System.Collections.Generic;
 
 namespace Lexico
 {
-
+    /// <summary>
+    /// Matches an element repeatedly (at least one time). Can be applied to any IList`1 type, or any generic
+    /// type with a compatible Add method (such as HashSet`1). Array members must be settable; others can be modified in-place.
+    /// Applied by default to any ICollection.
+    /// </summary>
     public class RepeatAttribute : TermAttribute
     {
+        /// <summary>
+        /// The minimum number of elements to match to succeed
+        /// </summary>
+        /// <value></value>
         public int Min { get; set; } = 0;
+
+        /// <summary>
+        /// The maximum number of elements to match (the parser will simply stop when it reaches this amount)
+        /// </summary>
+        /// <value></value>
         public int Max { get; set; } = Int32.MaxValue;
+
         public override int Priority => 20;
+
         public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
             => new RepeatParser(member.GetMemberType(), null,
             Min > 0 ? Min : default(int?), Max < Int32.MaxValue ? Max : default(int?));
