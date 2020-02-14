@@ -1,4 +1,4 @@
-# Lexico
+# Getting started
 
 ## Introduction
 
@@ -90,7 +90,7 @@ class Cosine : Expression {
     [Literal("cos(")] Unnamed _;
     [Term] float a;
     [Literal(")"] Unnamed __;
-    
+
     public override float Value => (float)Math.Cos(a);
 }
 
@@ -101,3 +101,4 @@ var result = Lexico.Parse<Expression>("2+2").Value;
 * Our first alternative is `Add`, which comprises two numbers with a literal "+" between them. We can override the `Value` property and put some functionality in there, allowing our program code to live side-by-side with the grammar definition
 * Our second alternative is `Cosine`, comprising "cos\(", a number, then "\)". Like `Add`, we override `Value` and put a different function there.
 * Finally we can call `Parse` with our top-level grammar, the base type. Since `Expression` is an Alternative, Lexico will return an instance of the first grammar that matches, which in this case is `Add`, so `result` is 4.
+
