@@ -3,6 +3,22 @@ using System.Text;
 
 namespace Lexico
 {
+    public struct StringSegment
+    {
+        public StringSegment(string str, int start, int length)
+        {
+            String = str;
+            Start = start;
+            Length = length;
+        }
+
+        public string String { get; }
+        public int Start { get; }
+        public int Length { get; }
+
+        public override string ToString() => String?.Substring(Start, Length) ?? "";
+    }
+
     /// <summary>
     /// Allows logging the results of each parser step for debugging, error reporting etc.
     /// </summary>
@@ -22,7 +38,7 @@ namespace Lexico
         /// <param name="success">True if matching succeeded</param>
         /// <param name="value">The resultant value</param>
         /// <param name="text">The total matched text</param>
-        void Pop(IParser parser, bool success, object? value, ReadOnlySpan<char> text);
+        void Pop(IParser parser, bool success, object? value, StringSegment text);
     }
 
     /// <summary>
@@ -34,7 +50,7 @@ namespace Lexico
 
         (IParser parser, string? name)? lastPush;
 
-        public void Pop(IParser parser, bool success, object? value, ReadOnlySpan<char> text)
+        public void Pop(IParser parser, bool success, object? value, StringSegment text)
         {
             var sb = new StringBuilder();
             if (lastPush.HasValue) {
@@ -53,7 +69,7 @@ namespace Lexico
                 sb.Append("\u2714").Append(" = ").Append(value ?? "<null>");
                 Console.ForegroundColor = ConsoleColor.Green;
             } else {
-                sb.Append("\u2717 (got `").Append(text.ToArray()).Append("`)");
+                sb.Append("\u2717 (got `").Append(text).Append("`)");
                 Console.ForegroundColor = ConsoleColor.Red;
             }
             Console.WriteLine(sb);

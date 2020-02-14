@@ -165,7 +165,7 @@ namespace Lexico
                     if (cacheValue.Item1) {
                         value = cacheValue.Item2;
                         trace.Push(parser, name);
-                        trace.Pop(parser, true, cacheValue.Item2, Text.AsSpan().Slice(Position, cacheValue.Item3));
+                        trace.Pop(parser, true, cacheValue.Item2, new StringSegment(Text, Position, cacheValue.Item3));
                         newContext = Advance(cacheValue.Item3);
                     }
                     return cacheValue.Item1;
@@ -190,8 +190,8 @@ namespace Lexico
                 throw new InvalidOperationException($"{parser} set the context to null");
             }
             var chars = Position >= Text.Length
-                ? ReadOnlySpan<char>.Empty
-                : Text.AsSpan().Slice(Position, Math.Max(1, newContext.Position - Position));
+                ? default
+                : new StringSegment(Text, Position, Math.Max(1, newContext.Position - Position));
             trace.Pop(parser, result, value, chars);
 
             // Remember the result
