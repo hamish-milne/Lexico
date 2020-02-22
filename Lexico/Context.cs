@@ -133,6 +133,7 @@ namespace Lexico
         public static Context CreateRoot(string text, ITrace trace)
         {
             var obj = Acquire();
+            obj.Position = 0;
             obj.Text = text;
             obj.trace = trace;
             obj.cache = new Dictionary<IParser, (bool, object?, int)>();
