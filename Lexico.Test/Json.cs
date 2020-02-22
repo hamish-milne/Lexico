@@ -1,13 +1,12 @@
 #pragma warning disable CS0169,CS0649,IDE0044,IDE0051
 using System.Collections.Generic;
-using Lexico;
 
-namespace Json
+namespace Lexico.Json
 {
     [WhitespaceSurrounded, MultiLine]
     public class JsonDocument
     {
-        [Term] JsonValue value;
+        [Term] public JsonValue value;
     }
 
     public abstract class JsonValue
