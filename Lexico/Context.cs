@@ -3,17 +3,60 @@ using System.Collections.Generic;
 
 namespace Lexico
 {
+    /// <summary>
+    /// The parse context; orchestrates the parser behaviour. Typically handles caching and recursion.
+    /// </summary>
     public interface IContext
     {
+        /// <summary>
+        /// The input text in its entirety
+        /// </summary>
+        /// <value></value>
         string Text { get; }
+
+        /// <summary>
+        /// The current position within the input string
+        /// </summary>
+        /// <value></value>
         int Position { get; }
+
+        /// <summary>
+        /// Looks ahead of the current position by the given amount
+        /// </summary>
+        /// <param name="offset"></param>
+        /// <returns>The character at the offset, or Null if past the EOF</returns>
         char? Peek(int offset);
+
+        /// <summary>
+        /// Advances the text position by the given amount, returning a new Context
+        /// </summary>
+        /// <param name="length"></param>
+        /// <returns></returns>
         IContext Advance(int length);
+
+        /// <summary>
+        /// Performs a match with the given parser. This method allows caching and recursion to be managed
+        /// as needed.
+        /// </summary>
+        /// <param name="parser">The parser in question</param>
+        /// <param name="name">A human-readable identifier for the child relationship, for the log</param>
+        /// <param name="newContext">The context after parsing. May be different even on failure</param>
+        /// <param name="value">The parser output value</param>
+        /// <returns>True if the text matches, otherwise false</returns>
         bool MatchChild(IParser? parser, string? name, out IContext newContext, ref object? value);
     }
 
     public static class ContextExtensions
     {
+        /// <summary>
+        /// Performs a match with the given parser. This method allows caching and recursion to be managed
+        /// as needed. (This is a convenience extension method for IContext.MatchChild)
+        /// </summary>
+        /// <param name="parser">The parser in question</param>
+        /// <param name="name">A human-readable identifier for the child relationship, for the log</param>
+        /// <param name="newContext">The context after parsing. May be different even on failure</param>
+        /// <param name="value">The parser output value</param>
+        /// <returns>True if the text matches, otherwise false</returns>
         public static bool MatchChild(this IParser? parser, string? name, ref IContext context, ref object? value)
             => context.MatchChild(parser, name, out context, ref value);
     }
@@ -122,8 +165,8 @@ namespace Lexico
                     if (cacheValue.Success) {
                         value = cacheValue.Value;
                         trace.Push(parser, name);
-                        trace.Pop(parser, true, cacheValue.Value, Text.AsSpan().Slice(Position, cacheValue.Length));
-                        newContext = Advance(cacheValue.Length);
+                        trace.Pop(parser, true, cacheValue.Item2, new StringSegment(Text, Position, cacheValue.Item3));
+                        newContext = Advance(cacheValue.Item3);
                     }
                     return cacheValue.Success;
                 }
@@ -147,8 +190,8 @@ namespace Lexico
                 throw new InvalidOperationException($"{parser} set the context to null");
             }
             var chars = Position >= Text.Length
-                ? ReadOnlySpan<char>.Empty
-                : Text.AsSpan().Slice(Position, Math.Max(1, newContext.Position - Position));
+                ? default
+                : new StringSegment(Text, Position, Math.Max(1, newContext.Position - Position));
             trace.Pop(parser, result, value, chars);
 
             // Remember the result

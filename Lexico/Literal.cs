@@ -5,18 +5,24 @@ using static System.AttributeTargets;
 
 namespace Lexico
 {
+    /// <summary>
+    /// Base class for Terminals - the left nodes of the parse tree
+    /// </summary>
     [AttributeUsage(Property | Field | Class | Struct, AllowMultiple = false)]
     public abstract class TerminalAttribute : TermAttribute
     {
         public override int Priority => 30;
-        public abstract IParser Create(MemberInfo member);
+        public abstract IParser Create(MemberInfo member, IConfig config);
 
-        public override IParser Create(MemberInfo member, Func<IParser> child)
+        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
         {
-            return Create(member);
+            return Create(member, config);
         }
     }
 
+    /// <summary>
+    /// Matches a string literal exactly. Outputs the matched text
+    /// </summary>
     public class LiteralAttribute : TerminalAttribute
     {
         public LiteralAttribute(string value) {
@@ -24,11 +30,15 @@ namespace Lexico
         }
         public string Value { get; }
 
-        public override IParser Create(MemberInfo member) {
+        public override IParser Create(MemberInfo member, IConfig config) {
             return new LiteralParser(Value);
         }
     }
 
+    /// <summary>
+    /// Matches a string literal read from the value of a named String Property. This allows the literal's value
+    /// to be different for derived classes. Outputs the matched text
+    /// </summary>
     public class IndirectLiteralAttribute : TerminalAttribute
     {
         public IndirectLiteralAttribute(string property) {
@@ -36,7 +46,7 @@ namespace Lexico
         }
         public string Property { get; }
 
-        public override IParser Create(MemberInfo member) {
+        public override IParser Create(MemberInfo member, IConfig config) {
             var prop = member.ReflectedType.GetProperty(Property, Instance | Public | NonPublic)
                 ?? throw new ArgumentException($"Could not find `{Property}` on {member.ReflectedType}");
             return new LiteralParser((string)prop.GetValue(Activator.CreateInstance(member.ReflectedType, true)));

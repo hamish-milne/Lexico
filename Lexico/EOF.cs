@@ -1,43 +1,37 @@
 using System;
 using System.Reflection;
+using static System.AttributeTargets;
 
 namespace Lexico
 {
-    public class EOFAfterAttribute : TermAttribute
+    /// <summary>
+    /// Indicates that this parser should match the entire string, allowing no left-over text
+    /// </summary>
+    [AttributeUsage(Class | Struct, AllowMultiple = false)]
+    public class TopLevelAttribute : TermAttribute
     {
-        public override int Priority => 1000;
-        public override IParser Create(MemberInfo member, Func<IParser> child)
+        public override int Priority => 110;
+        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
         {
-            var c = child();
-            if (c is EOFParser eof) {
-                return eof;
+            if (member == typeof(EOF)) {
+                return EOFParser.Instance;
             }
-            return new EOFParser(c);
+            return new SurroundParser(null, child(), EOFParser.Instance);
         }
     }
 
+    /// <summary>
+    /// Only matches the end-of-file (i.e. expects the Position to be past the end of the text). No output
+    /// </summary>
+    [TopLevel] public struct EOF {}
+
     internal class EOFParser : IParser
     {
-        public EOFParser(IParser child) {
-            this.child = child;
-        }
-        private readonly IParser child;
+        public static EOFParser Instance { get; } = new EOFParser();
+        private EOFParser() {}
+        public bool Matches(ref IContext context, ref object? value)
+            => !context.Peek(0).HasValue;
 
-        private class NothingParser : IParser
-        {
-            public static NothingParser Instance { get; } = new NothingParser();
-            
-            private NothingParser(){}
-
-            public bool Matches(ref IContext context, ref object? value) => !context.Peek(0).HasValue;
-
-            public override string ToString() => "<nothing>";
-        }
-
-        public bool Matches(ref IContext context, ref object? value) =>
-            child.MatchChild(null, ref context, ref value)
-            && NothingParser.Instance.MatchChild("EOF", ref context, ref value);
-
-        public override string ToString() => $"{child}>{NothingParser.Instance}";
+        public override string ToString() => "EOF";
     }
 }

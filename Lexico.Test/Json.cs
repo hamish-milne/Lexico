@@ -4,7 +4,7 @@ using Lexico;
 
 namespace Json
 {
-    [WhitespaceSurrounded]
+    [WhitespaceSurrounded, MultiLine]
     public class JsonDocument
     {
         [Term] JsonValue value;
@@ -27,13 +27,13 @@ namespace Json
         [Literal("\"")] Unnamed __;
     }
 
-    [WhitespaceSurrounded]
+    [WhitespaceSurrounded, MultiLine]
     struct JsonSeparator
     {
         [Literal(",")] Unnamed __;
     }
 
-    [WhitespaceSeparated]
+    [WhitespaceSeparated, MultiLine]
     public class JsonArray : JsonValue
     {
         [Literal("[")] Unnamed _;
@@ -41,7 +41,7 @@ namespace Json
         [Literal("]")] Unnamed __;
     }
 
-    [WhitespaceSeparated]
+    [WhitespaceSeparated, MultiLine]
     public class JsonProperty
     {
         [Term] JsonValue name;
@@ -49,7 +49,7 @@ namespace Json
         [Term] JsonValue value;
     }
 
-    [WhitespaceSeparated]
+    [WhitespaceSeparated, MultiLine]
     public class JsonDictionary : JsonValue
     {
         [Literal("{")] Unnamed _;

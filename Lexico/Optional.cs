@@ -4,11 +4,16 @@ using static System.AttributeTargets;
 
 namespace Lexico
 {
+    /// <summary>
+    /// Indicates that this member does not need to be matched. If the parsing fails, the member's value is unchanged
+    /// and the cursor is reset to its last position before continuing onward.
+    /// Applied by default to Nullable`1 types.
+    /// </summary>
     [AttributeUsage(Property | Field, AllowMultiple = false)]
     public class OptionalAttribute : TermAttribute
     {
         public override int Priority => 100;
-        public override IParser Create(MemberInfo member, Func<IParser> child)
+        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
         {
             IParser c;
             if (member is Type t && t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>)) {

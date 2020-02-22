@@ -5,10 +5,42 @@ using System.Text.RegularExpressions;
 
 namespace Lexico
 {
+    public struct StringSegment
+    {
+        public StringSegment(string str, int start, int length)
+        {
+            String = str;
+            Start = start;
+            Length = length;
+        }
+
+        public string String { get; }
+        public int Start { get; }
+        public int Length { get; }
+
+        public override string ToString() => String?.Substring(Start, Length) ?? "";
+    }
+
+    /// <summary>
+    /// Allows logging the results of each parser step for debugging, error reporting etc.
+    /// </summary>
     public interface ITrace
     {
+        /// <summary>
+        /// Indicates that a child parser is being tested
+        /// </summary>
+        /// <param name="parser">The parser</param>
+        /// <param name="name">The parser's name (relative to its parent)</param>
         void Push(IParser parser, string? name);
-        void Pop(IParser parser, bool success, object? value, ReadOnlySpan<char> text);
+
+        /// <summary>
+        /// Records the result of the matched Push record
+        /// </summary>
+        /// <param name="parser">The parser</param>
+        /// <param name="success">True if matching succeeded</param>
+        /// <param name="value">The resultant value</param>
+        /// <param name="text">The total matched text</param>
+        void Pop(IParser parser, bool success, object? value, StringSegment text);
     }
 
     public abstract class TextTrace : ITrace
@@ -24,7 +56,7 @@ namespace Lexico
         public bool Verbose { get; set; }
         public int SpacesPerIndent { get; set; } = 2;
 
-        public void Pop(IParser parser, bool success, object? value, ReadOnlySpan<char> text)
+        public void Pop(IParser parser, bool success, object? value, StringSegment text)
         {
             var sb = new StringBuilder()
                      .Append(lastPush.HasValue ? "|" : "<")
@@ -48,7 +80,7 @@ namespace Lexico
                     if (success) {
                         sb.Append("\u2714").Append(" = ").Append(value ?? "<null>");
                     } else {
-                        sb.Append("\u2717 (got `").Append(text.ToArray()).Append("`)");
+                        sb.Append("\u2717 (got `").Append(text).Append("`)");
                     }
                     break;
                 case false:
@@ -67,7 +99,7 @@ namespace Lexico
                     sb.Append(success ? " \u2714 " : " \u2717 ");
 
                     
-                    var result = new string(text.ToArray());
+                    var result = text.ToString();
                     void AppendResult(bool anyResult)
                     {
                         if (anyResult) {
@@ -121,6 +153,9 @@ namespace Lexico
         }
     }
 
+    /// <summary>
+    /// A Trace that writes directly and completely to the console (with colours)
+    /// </summary>
     public sealed class ConsoleTrace : TextTrace
     {
         protected override void WriteLine(bool isPop, bool success, string str)
