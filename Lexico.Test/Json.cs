@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Lexico.Json
 {
-    [WhitespaceSurrounded, MultiLine]
+    [WhitespaceSurrounded, MultiLine, TopLevel]
     public class JsonDocument
     {
         [Term] public JsonValue value;
