@@ -102,3 +102,5 @@ var result = Lexico.Parse<Expression>("2+2").Value;
 * Our second alternative is `Cosine`, comprising "cos\(", a number, then "\)". Like `Add`, we override `Value` and put a different function there.
 * Finally we can call `Parse` with our top-level grammar, the base type. Since `Expression` is an Alternative, Lexico will return an instance of the first grammar that matches, which in this case is `Add`, so `result` is 4.
 
+Sometimes 
+

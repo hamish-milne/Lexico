@@ -107,7 +107,7 @@ namespace Lexico
         private static readonly TermAttribute[] defaultAttrs = typeof(TermAttribute)
             .Assembly.GetExportedTypes()
             .Where(typeof(TermAttribute).IsAssignableFrom)
-            .Select(t => { try { return Activator.CreateInstance(t); } catch { return null; }})
+            .Select(t => { try { return Activator.CreateInstance(t); } catch { return null; }}) // TODO: Report errors here instead of throwing them away
             .OfType<TermAttribute>()
             .OrderBy(a => a.Priority)
             .ToArray();

@@ -34,10 +34,17 @@ namespace Lexico
         /// <returns>True if the parsing succeeded, otherwise false</returns>
         public static bool TryParse<T>(string str, out T output, ITrace trace)
         {
+            var success = TryParse(str, typeof(T), out var temp, trace);
+            output = success ? (T) temp : default!;
+            return success;
+        }
+
+        public static bool TryParse(string str, Type outputType, out object output, ITrace trace)
+        {
             object? value = null;
             IContext context = Context.CreateRoot(str, trace);
-            var result = ParserCache.GetParser(typeof(T)).MatchChild(null, ref context, ref value);
-            output = result ? (T)value! : default!;
+            var result = ParserCache.GetParser(outputType).MatchChild(null, ref context, ref value);
+            output = result ? value! : default!;
             return result;
         }
     }
