@@ -1,6 +1,7 @@
 using System.Reflection;
 using System;
 using static System.AttributeTargets;
+using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
@@ -9,7 +10,7 @@ namespace Lexico
     /// and the cursor is reset to its last position before continuing onward.
     /// Applied by default to Nullable`1 types.
     /// </summary>
-    [AttributeUsage(Property | Field, AllowMultiple = false)]
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = false)]
     public class OptionalAttribute : TermAttribute
     {
         public override int Priority => 100;
@@ -43,10 +44,17 @@ namespace Lexico
             this.child = child;
         }
         private readonly IParser child;
-        public bool Matches(ref IContext context, ref object? value)
+
+        public Type OutputType => child.OutputType; // TODO: Nullable<T> here?
+        
+        public void Compile(ICompileContext context)
         {
-            child.MatchChild(null, ref context, ref value);
-            return true;
+            var savePoint = context.Save();
+            context.Child(child, context.Result, context.Success, savePoint);
+            context.Restore(savePoint);
+            if (context.Success != null) {
+                context.Append(Goto(context.Success));
+            }
         }
 
         public override string ToString() => $"{child}?";

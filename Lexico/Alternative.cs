@@ -36,15 +36,18 @@ namespace Lexico
 
         private readonly Type baseType;
         private readonly IParser[] options;
-        public bool Matches(ref IContext context, ref object? value)
+
+        public Type OutputType => baseType;
+
+        public void Compile(ICompileContext context)
         {
             foreach (var option in options)
             {
-                if (option.MatchChild(null, ref context, ref value)) {
-                    return true;
-                }
+                var savePoint = context.Save();
+                context.Child(option, context.Result, context.Success, savePoint);
+                context.Restore(savePoint);
             }
-            return false;
+            context.Fail();
         }
 
         public override string ToString() => $"Any {baseType.Name}";

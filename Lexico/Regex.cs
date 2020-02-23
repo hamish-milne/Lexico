@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System;
+using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
@@ -25,19 +26,22 @@ namespace Lexico
             regex = new Regex($"^{pattern}", options);
         }
         private readonly Regex regex;
-        public bool Matches(ref IContext context, ref object? value)
+
+        public Type OutputType => typeof(String);
+
+        public void Compile(ICompileContext context)
         {
-            var str = context.Text;
-            if (context.Position >= str.Length) {
-                return false;
-            }
-            var match = regex.Match(str, context.Position, str.Length - context.Position);
-            if (match.Success) {
-                value = match.Value;
-                context = context.Advance(match.Value.Length);
-                return true;
-            }
-            return false;
+            context.Append(IfThen(GreaterThanOrEqual(context.Position, context.Length), Goto(context.Failure)));
+            var match = context.Cache(Call(
+                Constant(regex),
+                nameof(Regex.Match), Type.EmptyTypes,
+                context.String,
+                context.Position,
+                Subtract(context.Length, context.Position)
+            ));
+            context.Append(IfThen(Not(PropertyOrField(match, nameof(Match.Success))), Goto(context.Failure)));
+            context.Append(AddAssign(context.Position, PropertyOrField(match, nameof(Match.Length))));
+            context.Succeed(PropertyOrField(match, nameof(Match.Value)));
         }
 
         public override string ToString() => regex.ToString();

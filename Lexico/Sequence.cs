@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using static System.Reflection.BindingFlags;
+using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
@@ -63,7 +64,7 @@ namespace Lexico
             }
             this.members = members
                 .Select(m => (
-                    MemberType(m) == typeof(Unnamed) ? null : m,
+                    m.GetMemberType() == typeof(Unnamed) ? null : m,
                     ParserCache.GetParser(m)
                 ))
                 .ToArray();
@@ -73,36 +74,32 @@ namespace Lexico
         private readonly (MemberInfo? member, IParser parser)[] members;
         private readonly IParser? separator;
 
-        public bool Matches(ref IContext context, ref object? value)
+        public Type OutputType => Type;
+
+        public void Compile(ICompileContext context)
         {
-            if (!Type.IsInstanceOfType(value)) {
-                value = Activator.CreateInstance(Type);
-            }
+            // Get the current value. If it's not the right type, make a new one.
+            // If we're not saving the value, no need to do this
+            var obj = context.Result == null ? null :
+                context.Cache(Condition(TypeIs(context.Result, Type), context.Result, New(Type)));
             bool first = true;
-            foreach (var (member, parser) in members) {
-                object? tmp = null;
-                if (!first && !separator.MatchChild("(Separator)", ref context, ref tmp)) {
-                    return false;
+            foreach (var (member, parser) in members)
+            {
+                // If not the first item, add a Separator
+                if (!first && separator != null) {
+                    context.Child(separator, null, null, context.Failure);
                 }
                 first = false;
-                if (member == null) {
-                    tmp = null;
-                    if (!parser.MatchChild(null, ref context, ref tmp)) {
-                        return false;
-                    }
-                } else {
-                    var oldvalue = GetMember(value!, member);
-                    var newvalue = oldvalue;
-                    if (parser.MatchChild(member.Name, ref context, ref newvalue)) {
-                        if (member != null && newvalue != oldvalue) {
-                            SetMember(value!, member, newvalue);
-                        }
-                    } else {
-                        return false;
-                    }
-                }
+                // Match the item and, if we're saving the value, write it back to the member in question
+                context.Child(parser,
+                    member == null || obj == null ? null : MakeMemberAccess(obj, member),
+                    null, context.Failure);
             }
-            return true;
+        }
+
+        public bool CheckRecursion(IParser child)
+        {
+            return members.Any(c => c.parser == child || c.parser.CheckRecursion(child));
         }
 
         private static bool IsPrivate(MemberInfo member) => member switch
@@ -111,32 +108,6 @@ namespace Lexico
             PropertyInfo pi => (pi.SetMethod?.IsPrivate ?? true) && (pi.GetMethod?.IsPrivate ?? true), // if either accessor is not private, the property is not private
             _ => throw new ArgumentException($"{member} cannot determine member access level")
         };
-
-        private static void SetMember(object obj, MemberInfo member, object? value) {
-            switch (member) {
-                case FieldInfo field: field.SetValue(obj, value); break;
-                case PropertyInfo property: property.SetValue(obj, value); break;
-                default: throw new ArgumentException($"{member} cannot be set");
-            }
-        }
-
-        private static object? GetMember(object obj, MemberInfo member) {
-            return member switch
-            {
-                FieldInfo field => field.GetValue(obj),
-                PropertyInfo property => property.GetValue(obj),
-                _ => throw new ArgumentException($"{member} cannot be got"),
-            };
-        }
-
-        private static Type MemberType(MemberInfo member) {
-            return member switch
-            {
-                FieldInfo field => field.FieldType,
-                PropertyInfo property => property.PropertyType,
-                _ => throw new ArgumentException(),
-            };
-        }
 
         public override string ToString() => Type.Name;
     }

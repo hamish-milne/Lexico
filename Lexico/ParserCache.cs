@@ -47,13 +47,14 @@ namespace Lexico
             Inner = inner ?? throw new ArgumentNullException(nameof(inner));
         }
 
-        public bool Matches(ref IContext context, ref object? value)
+        public Type OutputType => Inner!.OutputType;
+
+        public void Compile(ICompileContext context)
         {
-            if (Inner == null) {
-                throw new InvalidOperationException("Not filled yet");
-            }
-            return Inner.MatchChild(null, ref context, ref value);
+            context.Child(Inner!, context.Result, context.Success, context.Failure);
         }
+
+        public bool CheckRecursion(IParser child) => Inner!.CheckRecursion(child);
 
         public override string ToString() => Inner?.ToString() ?? "UNSET";
 

@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using static System.Globalization.NumberStyles;
+using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
@@ -94,16 +95,20 @@ namespace Lexico
         private readonly MethodInfo parseMethod;
         private readonly Regex regex;
 
-        public bool Matches(ref IContext context, ref object? value)
+        public Type OutputType => parseMethod.DeclaringType;
+
+        public void Compile(ICompileContext context)
         {
-            var str = context.Text;
-            var match = regex.Match(str, context.Position, str.Length - context.Position);
-            if (match.Success) {
-                value = parseMethod.Invoke(null, new object[]{match.Value});
-                context = context.Advance(match.Value.Length);
-                return true;
-            }
-            return false;
+            var match = context.Cache(Call(
+                Constant(regex),
+                nameof(Regex.Match), Type.EmptyTypes,
+                context.String,
+                context.Position,
+                Subtract(context.Length, context.Position)
+            ));
+            context.Append(IfThen(Not(PropertyOrField(match, nameof(Match.Success))), Goto(context.Failure)));
+            context.Append(AddAssign(context.Position, PropertyOrField(match, nameof(Match.Length))));
+            context.Succeed(Call(parseMethod, PropertyOrField(match, nameof(Match.Value))));
         }
     }
 }

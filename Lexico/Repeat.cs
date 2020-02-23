@@ -2,6 +2,8 @@ using System.Reflection;
 using System.Collections;
 using System;
 using System.Collections.Generic;
+using static System.Linq.Expressions.Expression;
+using System.Linq.Expressions;
 
 namespace Lexico
 {
@@ -39,7 +41,8 @@ namespace Lexico
         public RepeatParser(Type listType, IParser? separator, int? min, int? max)
         {
             this.ListType = listType ?? throw new ArgumentNullException(nameof(listType));
-            element = ParserCache.GetParser(listType.IsArray ? listType.GetElementType() : listType.GetGenericArguments()[0]);
+            elementType = listType.IsArray ? listType.GetElementType() : listType.GetGenericArguments()[0];
+            element = ParserCache.GetParser(elementType);
             if (!typeof(IList).IsAssignableFrom(listType)) {
                 addMethod = listType.GetMethod("Add")
                     ?? throw new ArgumentException($"{listType} does not implement IList and has no Add method");
@@ -49,61 +52,59 @@ namespace Lexico
             Max = max;
         }
 
+        private readonly Type elementType;
         public Type ListType { get; }
         public int? Min { get; }
         public int? Max { get; }
         private readonly IParser element;
         private readonly MethodInfo? addMethod;
         private readonly IParser? separator;
-        public bool Matches(ref IContext context, ref object? value)
+
+        public Type OutputType => ListType;
+
+        public void Compile(ICompileContext context)
         {
-            if (ListType.IsArray) {
-                value = new List<object>();
-            } else if (value == null) {
-                value = Activator.CreateInstance(ListType);
-            }
-            var list = value as IList;
-            var args = new object?[1];
-            var listObj = value;
-            int count = 0;
-
-            void AddItem(object? obj) {
-                list?.Add(obj);
-                args[0] = obj;
-                addMethod?.Invoke(listObj, args);
-                count++;
+            var list = context.Result == null ? null :
+                context.Cache(ListType.IsArray ? (Expression)New(typeof(List<object>)) : (
+                    Condition(Equal(context.Result, null), New(ListType), context.Result)
+                ));
+            
+            // Make a var to store the result before adding to the list
+            var output = context.Result == null ? null : context.Cache(Default(elementType));
+            var count = context.Cache(Constant(0));
+            void AddToList() {
+                if (list != null) {
+                    context.Append(Call(list, nameof(IList.Add), Type.EmptyTypes, output));
+                }
             }
 
-            list?.Clear();
-            object? evalue = null;
-            if (!element.MatchChild(null, ref context, ref evalue)) {
-                return false;
+            // The first element must match
+            context.Child(element, output, null, context.Failure);
+            AddToList();
+
+            // Begin the loop
+            var loop = Label();
+            var loopEnd = Label();
+            context.Append(Assign(output, Default(elementType)));
+            context.Append(Label(loop));
+            if (Max.HasValue) {
+                context.Append(IfThen(GreaterThanOrEqual(count, Constant(Max.Value)), Goto(loopEnd)));
             }
-            AddItem(evalue);
-            var lastSuccessPos = context;
-            do {
-                evalue = null;
-                object? tmp = null;
-                if (!separator.MatchChild("(Separator)", ref context, ref tmp)) {
-                    break;
-                }
-                if (!element.MatchChild(null, ref context, ref evalue)) {
-                    break;
-                }
-                AddItem(evalue);
-                lastSuccessPos = context;
-            } while (!Max.HasValue || count < Max);
-            context = lastSuccessPos;
-            if (Min.HasValue && count < Min) {
-                return false;
+            // Subsequent elements can fail
+            var loopFail = context.Save();
+            if (separator != null) {
+                context.Child(separator, null, null, loopFail);
             }
-            if (ListType.IsArray)
-            {
-                var newarr = Array.CreateInstance(ListType.GetElementType(), list!.Count);
-                list!.CopyTo(newarr, 0);
-                value = newarr;
+            context.Child(element, output, null, loopFail);
+            AddToList();
+            context.Restore(loopFail);
+            context.Append(Label(loopEnd));
+
+            // Loop ends; decide whether to succeed or not
+            if (Min.HasValue) {
+                context.Append(IfThen(LessThan(count, Constant(Min.Value)), Goto(context.Failure)));
             }
-            return true;
+            context.Succeed(list ?? Empty());
         }
     }
 }

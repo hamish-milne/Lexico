@@ -1,5 +1,7 @@
 using System;
+using System.Linq.Expressions;
 using System.Reflection;
+using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
@@ -23,20 +25,21 @@ namespace Lexico
 
         public static EOLParser Instance { get; } = new EOLParser();
 
-        public bool Matches(ref IContext context, ref object? value)
+        public Type OutputType => typeof(void);
+
+        public void Compile(ICompileContext context)
         {
-            switch (context.Peek(0)) {
-                case '\n':
-                    context = context.Advance(1);
-                    return true;
-                case '\r':
-                    if (context.Peek(1) == '\n') {
-                        context = context.Advance(2);
-                        return true;
-                    }
-                    break;
-            }
-            return false;
+            var breakTarget = Label();
+            var fail = Goto(context.Failure);
+            var succeed = Goto(breakTarget);
+            context.Append(Switch(context.Peek(0), fail,
+                SwitchCase(Block(AddAssign(context.Position, Constant(1)), succeed), Constant('\n')),
+                SwitchCase(IfThenElse(Equal(context.Peek(1), Constant('\n')),
+                    Block(AddAssign(context.Position, Constant(2)), succeed),
+                    fail), Constant('\r'))
+            ));
+            context.Append(Label(breakTarget));
+            context.Succeed(Empty());
         }
     }
 }

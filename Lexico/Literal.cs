@@ -2,13 +2,14 @@ using System.Reflection;
 using System;
 using static System.Reflection.BindingFlags;
 using static System.AttributeTargets;
+using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
     /// <summary>
     /// Base class for Terminals - the left nodes of the parse tree
     /// </summary>
-    [AttributeUsage(Property | Field | Class | Struct, AllowMultiple = false)]
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field | Class | Struct, AllowMultiple = false)]
     public abstract class TerminalAttribute : TermAttribute
     {
         public override int Priority => 30;
@@ -59,16 +60,17 @@ namespace Lexico
             this.literal = literal;
         }
         private readonly string literal;
-        public bool Matches(ref IContext context, ref object? value)
+
+        public Type OutputType => typeof(string);
+
+        public void Compile(ICompileContext context)
         {
             for (int i = 0; i < literal.Length; i++) {
-                if (context.Peek(i) != literal[i]) {
-                    return false;
-                }
+                var c = Constant(literal[i]);
+                context.Append(IfThen(NotEqual(c, context.Peek(i)), Goto(context.Failure)));
             }
-            context = context.Advance(literal.Length);
-            value = literal;
-            return true;
+            context.Advance(literal.Length);
+            context.Succeed(Constant(literal));
         }
 
         public override string ToString() => $"`{literal}`";
