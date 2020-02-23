@@ -87,6 +87,6 @@ namespace Lexico
                 && suffix.MatchChild("(Suffix)", ref context, ref tmp);
         }
 
-        public override string ToString() => $"|{inner}|";
+        public override string ToString() => $"({prefix} {inner} {suffix})";
     }
 }

@@ -29,7 +29,6 @@ namespace Lexico
     {
         public static EOFParser Instance { get; } = new EOFParser();
         private EOFParser() {}
-
         public bool Matches(ref IContext context, ref object? value)
             => !context.Peek(0).HasValue;
 
