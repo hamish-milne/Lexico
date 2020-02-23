@@ -43,6 +43,13 @@ namespace Lexico
         void Pop(IParser parser, bool success, object? value, StringSegment text);
     }
 
+    public sealed class NoTrace : ITrace
+    {
+        public void Push(IParser parser, string? name) { }
+
+        public void Pop(IParser parser, bool success, object? value, StringSegment text) { }
+    }
+
     public abstract class TextTrace : ITrace
     {
         int currentIndent = 0;
