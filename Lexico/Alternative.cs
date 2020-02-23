@@ -12,6 +12,8 @@ namespace Lexico
     /// </summary>
     public class AlternativeAttribute : TermAttribute
     {
+        // ReSharper disable once UnusedMember.Global
+        public AlternativeAttribute() { Options = null; } // Required as Activator.CreateInstance cannot use params constructors to create a parameterless instance
         public AlternativeAttribute(params Type[] options) { Options = options; }
         public Type[] Options { get; }
         public override int Priority => 10;
@@ -57,7 +59,6 @@ namespace Lexico
                 optionTypes = baseType.Assembly.GetTypes().Where(t => (t.IsClass || t.IsValueType) && !t.IsAbstract && baseType.IsAssignableFrom(t));
             }
 
-            // ReSharper disable once PossibleMultipleEnumeration
             options = optionTypes.Select(ParserCache.GetParser).ToArray();
             if (options.Length == 0)
             {
