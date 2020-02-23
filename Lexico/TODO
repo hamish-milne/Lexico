@@ -24,7 +24,8 @@
     ☐ Use 'NullableAttribute(2)' for Optional
     ✔ Improve Sequence member searching and ordering @done(20-02-09 12:22)
 ☐ Better Alternatives
-    ☐ Explicit 'alternatives' attribute
+    ✔ Explicit 'alternatives' attribute @done(20-02-23 17:20)
+    ✔ Deferred explicit 'indirect alternative' @done(20-02-23 17:20)
     ☐ 'Excludes' attribute
     ☐ Priority attribute
 ✔ Repeat min/max count? @done(20-02-08 22:47)
@@ -36,4 +37,4 @@
 ☐ Formatting
 ☐ JSON implementation!!
 ☐ Regex implementation!!
-☐ Perf test
+✔ Perf test @done(20-02-23 13:33)
