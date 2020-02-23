@@ -27,7 +27,7 @@ namespace Lexico
             this.baseType = baseType;
             options = baseType.Assembly.GetTypes()
                 .Where(t => (t.IsClass || t.IsValueType) && !t.IsAbstract && baseType.IsAssignableFrom(t))
-                .Select(t => ParserCache.GetParser(t))
+                .Select(ParserCache.GetParser)
                 .ToArray();
             if (options.Length == 0) {
                 throw new ArgumentException($"{baseType} has no concrete options");

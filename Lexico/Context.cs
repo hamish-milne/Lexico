@@ -72,7 +72,7 @@ namespace Lexico
         private Context? parent;
         private IParser? parser;
         private ITrace trace;
-        private Dictionary<IParser, (bool, object?, int)> cache;
+        private Dictionary<IParser, (bool Success, object? Value, int Length)> cache;
 
         public string Text { get; private set; }
         public int Position { get; private set; }
@@ -163,13 +163,13 @@ namespace Lexico
                     return false;
                 }
                 if (c.cache.TryGetValue(parser, out var cacheValue)) {
-                    if (cacheValue.Item1) {
-                        value = cacheValue.Item2;
+                    if (cacheValue.Success) {
+                        value = cacheValue.Value;
                         trace.Push(parser, name);
                         trace.Pop(parser, true, cacheValue.Item2, new StringSegment(Text, Position, cacheValue.Item3));
                         newContext = Advance(cacheValue.Item3);
                     }
-                    return cacheValue.Item1;
+                    return cacheValue.Success;
                 }
                 c = c.parent;
             }
