@@ -13,7 +13,6 @@ namespace Lexico
     {
         Type OutputType { get; }
         void Compile(ICompileContext context);
-        bool CheckRecursion(IParser child);
     }
 
     public interface ICompileContext
@@ -27,6 +26,7 @@ namespace Lexico
         Expression Length { get; }
         Expression Cache(Expression value);
         Expression String { get; }
+        Expression ClearILR { get; }
         void Append(Expression statement);
         void Child(IParser child, Expression? result, LabelTarget? onSuccess, LabelTarget onFail);
     }
@@ -36,24 +36,30 @@ namespace Lexico
         public static void Succeed(this ICompileContext context, Expression value)
         {
             if (context.Result != null) {
-                context.Append(Expression.Assign(context.Result, value));
+                context.Append(Assign(context.Result, value));
             }
             context.Succeed();
         }
         public static void Succeed(this ICompileContext context)
         {
             if (context.Success != null) {
-                context.Append(Expression.Goto(context.Success));
+                context.Append(Goto(context.Success));
             }
         }
         public static void Fail(this ICompileContext context)
-            => context.Append(Expression.Goto(context.Failure));
-        
+            => context.Append(Goto(context.Failure));
+
         public static void Advance(this ICompileContext context, int length)
-            => context.Append(Expression.AddAssign(context.Position, Expression.Constant(length)));
-        
+        {
+            if (length == 0) {
+                return;
+            }
+            context.Append(AddAssign(context.Position, Constant(length)));
+            context.Append(context.ClearILR);
+        }
+
         public static Expression Peek(this ICompileContext context, int index)
-            => Expression.ArrayIndex(context.String, Expression.Add(context.Position, Expression.Constant(index)));
+            => ArrayIndex(context.String, Add(context.Position, Constant(index)));
     }
 
     internal delegate bool Parser<T>(string input, ref T position, ref T value, ITrace trace);
@@ -72,17 +78,18 @@ namespace Lexico
 
         public Expression String { get; }
 
+        public Expression ClearILR { get; }
+
         private delegate bool LocalParser<T>(ref T value);
 
         private readonly List<Expression> statements = new List<Expression>();
         private readonly List<ParameterExpression> variables = new List<ParameterExpression>();
         private readonly Dictionary<(IParser, bool), Expression> recursionTargets;
-        private readonly HashSet<(IParser, bool)> finishedRecursionTargets;
+        private readonly List<IParser> recursionList;
         private readonly CompileContext topLevel;
         private readonly IParser source;
         private readonly CompileContext? parent;
-
-        //private readonly Expression dlr;
+        private readonly Expression ilrStack;
 
         private bool InTree(IParser parser) => source == parser || parent?.InTree(parser) == true;
 
@@ -93,9 +100,26 @@ namespace Lexico
 
         public Expression Cache(Expression value)
         {
-            var v = Expression.Variable(value.Type);
-            statements.Add(Expression.Assign(v, value));
+            var v = Variable(value.Type);
+            statements.Add(Assign(v, value));
             return v;
+        }
+
+        private CompileContext(Expression text, IParser source, Expression position, Expression result, LabelTarget onSuccess, LabelTarget onFail)
+        {
+            this.Success = onSuccess;
+            this.Failure = onFail;
+            this.Position = position;
+            this.Result = result;
+            this.Length = PropertyOrField(text, nameof(string.Length));
+            this.String = text;
+            this.recursionTargets = new Dictionary<(IParser, bool), Expression>();
+            this.recursionList = new List<IParser>();
+            this.topLevel = this;
+            this.source = source;
+            this.parent = null;
+            this.ilrStack = Cache(Constant(default(ulong)));
+            this.ClearILR = AndAssign(ilrStack, Constant(~(1 << recursionList.IndexOf(source))));
         }
 
         private CompileContext(CompileContext parent, IParser source, Expression? result, LabelTarget? onSuccess, LabelTarget onFail)
@@ -107,54 +131,91 @@ namespace Lexico
             this.Length = parent.Length;
             this.String = parent.String;
             this.recursionTargets = parent.recursionTargets;
-            this.finishedRecursionTargets = parent.finishedRecursionTargets;
+            this.recursionList = parent.recursionList;
             this.topLevel = parent.topLevel;
             this.source = source;
             this.parent = parent;
+            this.ilrStack = parent.ilrStack;
+            this.ClearILR = AndAssign(ilrStack, Constant(~(1 << recursionList.IndexOf(source))));
+        }
+
+        public static Delegate Compile(IParser parser)
+        {
+            var position = Parameter(typeof(int));
+            var text = Parameter(typeof(string));
+            var onSuccess = Label();
+            var onFail = Label();
+            var result = Parameter(parser.OutputType);
+            var context = new CompileContext(text, null!, position, result, onSuccess, onFail);
+            context.Child(parser, result, onSuccess, onFail);
+            var end = Label(typeof(bool));
+            context.statements.AddRange(new Expression[]{
+                Label(onSuccess),
+                Return(end, Constant(true)),
+                Label(onFail),
+                Return(end, Constant(false)),
+                Label(end)
+            });
+            return Lambda(typeof(Parser<>).MakeGenericType(parser.OutputType), context.MakeBlock(), text, position, result, Parameter(typeof(ITrace))).Compile();
         }
 
         public void Child(IParser child, Expression? result, LabelTarget? onSuccess, LabelTarget onFail)
         {
+            var outType = child.OutputType;
+            if (outType == typeof(void)) {
+                outType = typeof(Unnamed);
+            }
             var recursionKey = (child, result != null);
-            if (InTree(child))
+            if (recursionTargets.TryGetValue(recursionKey, out var recurse))
             {
-                // Parsing 'child' within itself - we are doing some sort of recursion
-                // Add or get a placeholder for the parse function...
-                if (!recursionTargets.TryGetValue(recursionKey, out var recurse)) {
-                    var outType = child.OutputType;
-                    if (outType == typeof(void)) {
-                        outType = typeof(Unnamed);
-                    }
-                    recurse = topLevel.Cache(Default(typeof(LocalParser<>).MakeGenericType(outType)));
-                    recursionTargets.Add(recursionKey, recurse);
+                // We are currently recursing, or did in the past, so we should use the placeholder value
+                var tmp = Cache(Default(child.OutputType));
+                statements.Add(IfThen(Not(Invoke(recurse, tmp)), Goto(onFail)));
+                this.Succeed(tmp);
+            }
+            else if (CheckRecursion(child))
+            {
+                // Make a placeholder variable
+                var placeholder = topLevel.Cache(Default(typeof(LocalParser<>).MakeGenericType(outType)));
+                recursionTargets.Add(recursionKey, placeholder);
+                recursionList.Add(child);
+                if (recursionList.Count > 64) {
+                    throw new NotSupportedException("Too many recursive parsers; max of 64");
                 }
-                // And then call it. The value will be filled in by the earliest call to compile 'child'
-                var tmp = Cache(Expression.Default(child.OutputType));
-                statements.Add(IfThen(Not(Invoke(recurse, tmp)), Goto(onFail)));
-                this.Succeed(tmp);
-            }
-            else if (recursionTargets.TryGetValue(recursionKey, out var recurse))
-            {
-                var tmp = Cache(Expression.Default(child.OutputType));
-                statements.Add(IfThen(Not(Invoke(recurse, tmp)), Goto(onFail)));
-                this.Succeed(tmp);
-            }
-            else if (child.CheckRecursion(child))
-            {
+
                 // Since we're recursing, we need to compile a lambda for this parser
-                var tmpResult = result == null ? null : Cache(result);
-                var childContext = new CompileContext(this, child, result, onSuccess, onFail);
+                var tmpResult = Parameter(outType);
+                var tmpSuccess = Label();
+                var tmpFail = Label();
+                var childContext = new CompileContext(this, child, tmpResult, tmpSuccess, tmpFail);
+
+                // Disallow immediate left recursion
+                var currentBit = (ulong)1 << recursionList.IndexOf(child);
+                childContext.Append(IfThen(NotEqual(Constant(0), And(ilrStack, Constant(currentBit))), Goto(tmpFail)));
+                childContext.Append(OrAssign(ilrStack, Constant(currentBit)));
                 child.Compile(childContext);
-                if (recursionTargets.TryGetValue(recursionKey, out var placeholder)
-                    && !finishedRecursionTargets.Contains(recursionKey))
-                {
-                    // Recursion happened, but was filled in with placeholders for now. We need to make the final value.
-                    topLevel.Append(Assign(placeholder, Lambda(childContext.MakeBlock(), (ParameterExpression)result!)));
-                }
-                // Either the recursion already existed or we just finished it; either way we can call the result
-                var tmp = Cache(Expression.Default(child.OutputType));
+
+                // Convert the gotos to a boolean return value
+                var end = Label(typeof(bool));
+                childContext.statements.AddRange(new Expression[]{
+                    Label(tmpSuccess),
+                    Return(end, Constant(true)),
+                    Label(tmpFail),
+                    Return(end, Constant(false)),
+                    Label(end)
+                });
+
+                // Set the placeholder to the lambda we just built up
+                topLevel.Append(Assign(placeholder, Lambda(childContext.MakeBlock(), tmpResult)));
+
+                // Now we can call the result for the top level
+                var tmp = Cache(Default(child.OutputType));
                 statements.Add(IfThen(Not(Invoke(placeholder, tmp)), Goto(onFail)));
                 this.Succeed(tmp);
+            }
+            else if (InTree(child))
+            {
+                throw new InvalidOperationException($"{child} was recursed into inconsistently. Parsers must be stateless and repeatable.");
             }
             else
             {
@@ -167,14 +228,58 @@ namespace Lexico
 
         private Expression MakeBlock() => Block(variables, statements);
 
+        private readonly Dictionary<LabelTarget, (Expression pos, Expression stack)> savePoints
+            = new Dictionary<LabelTarget, (Expression, Expression)>();
+
         public void Restore(LabelTarget savePoint)
         {
-            throw new NotImplementedException();
+            var (pos, stack) = savePoints[savePoint];
+            Append(Label(savePoint));
+            Append(Assign(Position, pos));
+            Append(Assign(ilrStack, stack));
         }
 
         public LabelTarget Save()
         {
-            throw new NotImplementedException();
+            var restore = Label();
+            savePoints.Add(restore, (Cache(Position), Cache(ilrStack)));
+            return restore;
+        }
+
+        private class RecursionCheck : ICompileContext
+        {
+            public LabelTarget? Success => null;
+            public LabelTarget Failure { get; } = Label();
+            public Expression Position { get; } = Parameter(typeof(int));
+            public Expression? Result => null;
+            public Expression Length { get; } = Parameter(typeof(int));
+            public Expression String { get; } = Parameter(typeof(string));
+            public Expression ClearILR { get; } = Empty();
+            public void Append(Expression statement) { }
+            public Expression Cache(Expression value) => Parameter(value.Type);
+            public void Restore(LabelTarget savePoint) {}
+            public LabelTarget Save() => Label();
+
+            public HashSet<IParser> Children { get; } = new HashSet<IParser>();
+
+            public void Child(IParser child, Expression? result, LabelTarget? onSuccess, LabelTarget onFail)
+            {
+                Children.Add(child);
+            }
+        }
+
+        private readonly Dictionary<IParser, bool> recursiveParsersCache;
+
+        private bool CheckRecursion(IParser child)
+        {
+            if (!recursiveParsersCache.TryGetValue(child, out var result))
+            {
+                var ctx = new RecursionCheck();
+                child.Compile(ctx);
+                result = ctx.Children.Contains(child);
+                recursiveParsersCache.Add(child, result);
+            }
+            return result;
         }
 
 

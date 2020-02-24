@@ -54,8 +54,6 @@ namespace Lexico
             context.Child(Inner!, context.Result, context.Success, context.Failure);
         }
 
-        public bool CheckRecursion(IParser child) => Inner!.CheckRecursion(child);
-
         public override string ToString() => Inner?.ToString() ?? "UNSET";
 
         public override int GetHashCode() => Inner?.GetHashCode() ?? 0;

@@ -97,11 +97,6 @@ namespace Lexico
             }
         }
 
-        public bool CheckRecursion(IParser child)
-        {
-            return members.Any(c => c.parser == child || c.parser.CheckRecursion(child));
-        }
-
         private static bool IsPrivate(MemberInfo member) => member switch
         {
             FieldInfo fi => fi.IsPrivate,
