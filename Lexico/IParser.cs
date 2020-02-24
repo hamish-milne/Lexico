@@ -60,7 +60,8 @@ namespace Lexico
         }
 
         public static Expression Peek(this ICompileContext context, int index)
-            => MakeIndex(context.String, typeof(string).GetProperty("Chars"), new []{Add(context.Position, Constant(index))});
+            => MakeIndex(context.String, typeof(string).GetProperty("Chars"),
+                new []{index == 0 ? context.Position : Add(context.Position, Constant(index))});
     }
 
     internal delegate bool Parser<T>(string input, ref int position, ref T value, ITrace trace);
@@ -154,7 +155,7 @@ namespace Lexico
             var result = Parameter(parser.OutputType.MakeByRefType());
             var traceParam = Parameter(typeof(ITrace));
             var context = new CompileContext(text, position, result, onSuccess, onFail, trace ? traceParam : null);
-            context.Child(parser, result, onSuccess, onFail);
+            context.Child(parser, context.Result, onSuccess, onFail);
             var block = context.MakeFunctionBlock();
             return Lambda(
                 typeof(Parser<>).MakeGenericType(parser.OutputType),
@@ -204,7 +205,9 @@ namespace Lexico
                 var childContext = new CompileContext(this, child, tmpResult, tmpSuccess, tmpFail);
 
                 // Disallow immediate left recursion
+                // TODO: Don't do ILR check if ILR isn't possible
                 var currentBit = (ulong)1 << recursionList.IndexOf(child);
+                // TODO: Add ILR check back in (for concrete exprs?)
                 //childContext.Append(IfThen(NotEqual(Constant((ulong)0), And(ilrStack, Constant(currentBit))), Goto(tmpFail)));
                 childContext.Append(OrAssign(ilrStack, Constant(currentBit)));
                 child.Compile(childContext);
@@ -322,7 +325,6 @@ namespace Lexico
             var ctx = new RecursionCheck{parent = this};
             child.Compile(ctx);
             var result = ctx.Children.Contains(child);
-            Console.WriteLine($"{child} -> [{string.Join(", ", ctx.Children.Select(c => c.ToString()))}]");
             if (!result) {
                 knownNotRecursive.Add(child);
             }

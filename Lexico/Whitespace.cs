@@ -34,8 +34,10 @@ namespace Lexico
 
         public void Compile(ICompileContext context)
         {
-            var isWhiteSpace = new Func<char, bool>(Char.IsWhiteSpace).Method;
-            Expression test = Call(isWhiteSpace, context.Peek(0));
+            // TODO: Opt-in for fast whitespace
+            Expression test = LessThanOrEqual(context.Peek(0), Constant(' '));
+            // var isWhiteSpace = new Func<char, bool>(Char.IsWhiteSpace).Method;
+            // Expression test = Call(isWhiteSpace, context.Peek(0));
             if (!multiline) {
                 test = And(NotEqual(context.Peek(0), Constant('\n')), test);
             }

@@ -50,8 +50,12 @@ namespace Lexico
         public void Compile(ICompileContext context)
         {
             var savePoint = context.Save();
-            context.Child(child, context.Result, context.Success, savePoint);
+            var skip = context.Success == null ? Label() : null;
+            context.Child(child, context.Result, context.Success ?? skip, savePoint);
             context.Restore(savePoint);
+            if (skip != null) {
+                context.Append(Label(skip));
+            }
             if (context.Success != null) {
                 context.Append(Goto(context.Success));
             }

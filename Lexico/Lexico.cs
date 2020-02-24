@@ -38,7 +38,7 @@ namespace Lexico
         {
             if (!compilerCache.TryGetValue(typeof(T), out var compiled)) {
                 var parser = ParserCache.GetParser(typeof(T));
-                compiled = CompileContext.Compile(parser, true); // TODO: Optimization options etc.
+                compiled = CompileContext.Compile(parser, false); // TODO: Optimization options etc.
                 Console.WriteLine($"Approx complexity: {GetILBytes(compiled.Method).Length}");
                 compilerCache.TryAdd(typeof(T), compiled);
             }
