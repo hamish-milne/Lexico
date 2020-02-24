@@ -109,5 +109,7 @@ namespace Lexico
             }
             context.Succeed(list ?? Empty());
         }
+
+        public override string ToString() => $"[{element}...]";
     }
 }

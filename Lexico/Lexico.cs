@@ -47,6 +47,11 @@ namespace Lexico
             return ((Parser<T>)compiled)(str, ref position, ref output, trace);
         }
 
+        public static bool TryParse(string str, Type outputType, out object output, ITrace trace)
+        {
+            throw new NotImplementedException();
+        }
+
         private static byte[] GetILBytes(MethodInfo method)
         {
             var dynamicMethod = method.GetType().GetField("m_owner", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(method);

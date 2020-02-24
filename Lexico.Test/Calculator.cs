@@ -1,8 +1,7 @@
 #pragma warning disable CS0169,CS0649,IDE0044,IDE0051
 using System;
-using Lexico;
 
-namespace Calculator
+namespace Lexico.Calculator
 {
     public abstract class Expression
     {

@@ -93,6 +93,6 @@ namespace Lexico
             context.Succeed();
         }
 
-        public override string ToString() => $"|{inner}|";
+        public override string ToString() => $"({prefix} {inner} {suffix})";
     }
 }

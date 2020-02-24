@@ -3,14 +3,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
-using Lexico;
 
-namespace Json
+namespace Lexico.Json
 {
     [WhitespaceSurrounded, MultiLine, TopLevel]
     public class JsonDocument
     {
-        [Term] JsonValue value;
+        [Term] public JsonValue value;
     }
 
     public abstract class JsonValue

@@ -1,4 +1,3 @@
-using System;
 using Xunit;
 
 namespace Lexico.Test
@@ -6,14 +5,14 @@ namespace Lexico.Test
     public class UnitTest1
     {
         [Fact]
-        public void Test1()
+        public void CalculatorTest()
         {
             var expr = Lexico.Parse<Calculator.Expression>("5-(3/2)^(2+1)", new ConsoleTrace());
             Assert.Equal(1.625f, expr.Value);
         }
 
         [Fact]
-        public void Test2()
+        public void JsonTest()
         {
             var expr = Lexico.Parse<Json.JsonDocument>(@"
             {
