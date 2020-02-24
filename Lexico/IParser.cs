@@ -68,7 +68,8 @@ namespace Lexico
     {
         None = 0,
         Trace = 1 << 0,
-        CheckImmediateLeftRecursion = 1 << 1 // TODO: Test for this
+        CheckImmediateLeftRecursion = 1 << 1, // TODO: Test for this
+        Memoizing = 1 << 2
     }
 
     internal delegate bool Parser<T>(string input, ref int position, ref T value, ITrace trace);
@@ -98,6 +99,8 @@ namespace Lexico
         private readonly Expression? byRefResult;
         private readonly Expression? trace;
         private readonly bool enableIlrCheck;
+        private Expression? memo;
+        private List<IParser> parsersById;
 
         private bool InTree(IParser parser) => source == parser || parent?.InTree(parser) == true;
 
@@ -112,6 +115,19 @@ namespace Lexico
             statements.Add(Assign(v, value));
             variables.Add(v);
             return v;
+        }
+
+        private struct Memo
+        {
+            private HashSet<(int, int, ulong)> cache;
+
+            public void Init() {
+                cache = new HashSet<(int, int, ulong)>();
+            }
+
+            public bool Check(int id, int pos, ulong ilr) => cache.Contains((id, pos, ilr));
+
+            public bool Remember(int id, int pos, ulong ilr) => cache.Add((id, pos, ilr));
         }
 
         private CompileContext(Expression text, Expression position, Expression result, LabelTarget onSuccess, LabelTarget onFail, Expression? trace)
@@ -133,6 +149,7 @@ namespace Lexico
             this.ilrStack = Cache(Constant(default(ulong)));
             this.ilrPos = Cache(position);
             this.trace = trace;
+            this.parsersById = new List<IParser>();
         }
 
         private CompileContext(CompileContext parent, IParser source, Expression? result, LabelTarget? onSuccess, LabelTarget onFail, bool enableIlrCheck)
@@ -153,6 +170,8 @@ namespace Lexico
             this.ilrPos = parent.ilrPos;
             this.trace = parent.trace;
             this.enableIlrCheck = enableIlrCheck;
+            this.memo = parent.memo;
+            this.parsersById = parent.parsersById;
         }
 
         public static Delegate Compile(IParser parser, CompileFlags flags)
@@ -165,6 +184,10 @@ namespace Lexico
             var traceParam = Parameter(typeof(ITrace));
             var context = new CompileContext(text, position, result, onSuccess, onFail,
                 (flags & CompileFlags.Trace) != 0 ? traceParam : null);
+            if ((flags & CompileFlags.Memoizing) != 0) {
+                context.memo = context.Cache(New(typeof(Memo)));
+                context.Append(Call(context.memo, nameof(Memo.Init), Type.EmptyTypes));
+            }
             context.Child(parser, context.Result, onSuccess, onFail);
             var block = context.MakeFunctionBlock();
             return Lambda(
@@ -178,10 +201,7 @@ namespace Lexico
         {
             if (!recursionTargets.ContainsKey(child))
             {
-                var outType = child.OutputType;
-                if (outType == typeof(void)) {
-                    outType = typeof(Unnamed);
-                }
+                var outType = GetOutputType(child);
 
                 // Make a placeholder variable
                 var placeholder = topLevel.Cache(Default(typeof(LocalParser<>).MakeGenericType(outType)));
@@ -202,15 +222,12 @@ namespace Lexico
             CallRecursionTarget(child, Result, Success, Failure);
         }
 
+        Type GetOutputType(IParser child) => child.OutputType == typeof(void) ? typeof(Unnamed) : child.OutputType;
+
         void CallRecursionTarget(IParser child, Expression? result, LabelTarget? onSuccess, LabelTarget onFail)
         {
-            var outType = child.OutputType;
-            if (outType == typeof(void)) {
-                outType = typeof(Unnamed);
-            }
-
             var recurse = recursionTargets[child];
-            var tmp = Cache(Default(outType));
+            var tmp = Cache(Default(GetOutputType(child)));
             statements.Add(IfThen(Not(Invoke(recurse, tmp)), Goto(onFail)));
             if (result != null && child.OutputType != typeof(void)) {
                 Append(Assign(result, tmp));
@@ -240,12 +257,25 @@ namespace Lexico
                 Append(IfThen(And(Equal(ilrPos, Position), NotEqual(Constant((ulong)0), And(ilrStack, Constant(currentBit)))), Goto(onFail)));
                 Append(IfThen(NotEqual(ilrPos, Position), Block(Assign(ilrPos, Position), Assign(ilrStack, Constant((ulong)0)))));
                 Append(OrAssign(ilrStack, Constant(currentBit)));
+
+            }
+
+            var memoOnFail = onFail;
+            Expression remember = null!;
+            if (memo != null) {
+                if (!parsersById.Contains(child)) {
+                    parsersById.Add(child);
+                }
+                var parserId = Constant(parsersById.IndexOf(child));
+                Append(IfThen(Call(memo, nameof(Memo.Check), Type.EmptyTypes, parserId, Position, ilrStack), Goto(onFail)));
+                remember = Call(memo, nameof(Memo.Remember), Type.EmptyTypes, parserId, Cache(Position), Cache(ilrStack));
+                memoOnFail = Label();
             }
 
             if (recursionTargets.ContainsKey(child))
             {
                 // We are currently recursing, or did in the past, so we should use the placeholder value
-                CallRecursionTarget(child, result, onSuccess, onFail);
+                CallRecursionTarget(child, result, onSuccess, memoOnFail);
             }
             // else if (InTree(child))
             // {
@@ -262,28 +292,38 @@ namespace Lexico
                     child.Compile(childContext);
                     // If recursion became apparent during compilation...
                     if (recursionTargets.ContainsKey(child)) {
-                        CallRecursionTarget(child, result, onSuccess, onFail);
-                        return;
+                        CallRecursionTarget(child, result, onSuccess, memoOnFail);
                     }
-                    Append(Block(childContext.variables, childContext.statements));
-                    statements.AddRange(new Expression[]{
-                        Label(childFail),
-                        Call(trace, nameof(ITrace.Pop), Type.EmptyTypes, Constant(child, typeof(IParser)), Constant(false), Constant(null), Constant(new StringSegment())),
-                        Goto(onFail),
-                        Label(childSuccess),
-                        Call(trace, nameof(ITrace.Pop), Type.EmptyTypes, Constant(child, typeof(IParser)), Constant(true), result == null ? (Expression)Constant(null) : Convert(result, typeof(object)), Constant(new StringSegment())),
-                        onSuccess == null ? (Expression)Empty() : Goto(onSuccess)
-                    });
+                    else {
+                        Append(Block(childContext.variables, childContext.statements));
+                        statements.AddRange(new Expression[]{
+                            Label(childFail),
+                            Call(trace, nameof(ITrace.Pop), Type.EmptyTypes, Constant(child, typeof(IParser)), Constant(false), Constant(null), Constant(new StringSegment())),
+                            Goto(memoOnFail),
+                            Label(childSuccess),
+                            Call(trace, nameof(ITrace.Pop), Type.EmptyTypes, Constant(child, typeof(IParser)), Constant(true), result == null ? (Expression)Constant(null) : Convert(result, typeof(object)), Constant(new StringSegment())),
+                            onSuccess == null ? (Expression)Empty() : Goto(onSuccess)
+                        });
+                    }
                 } else {
-                    var childContext = new CompileContext(this, child, result, onSuccess, onFail, false);
+                    var childContext = new CompileContext(this, child, result, onSuccess, memoOnFail, false);
                     child.Compile(childContext);
                     // If recursion became apparent during compilation...
                     if (recursionTargets.ContainsKey(child)) {
-                        CallRecursionTarget(child, result, onSuccess, onFail);
-                        return;
+                        CallRecursionTarget(child, result, onSuccess, memoOnFail);
+                    } else {
+                        Append(Block(childContext.variables, childContext.statements));
                     }
-                    Append(Block(childContext.variables, childContext.statements));
                 }
+            }
+
+            if (memo != null) {
+                var skip = Label();
+                Append(Goto(skip));
+                Append(Label(memoOnFail));
+                Append(remember!);
+                Append(Goto(onFail));
+                Append(Label(skip));
             }
         }
 

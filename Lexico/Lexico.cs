@@ -37,6 +37,7 @@ namespace Lexico
         public static bool TryParse<T>(string str, out T output, ITrace? trace = null)
         {
             var key = (typeof(T), trace == null ? CompileFlags.None : CompileFlags.Trace);
+            key.Item2 |= CompileFlags.Memoizing;
             if (!compilerCache.TryGetValue(key, out var compiled)) {
                 var parser = ParserCache.GetParser(typeof(T));
                 compiled = CompileContext.Compile(parser, key.Item2); // TODO: Optimization options etc.
