@@ -23,7 +23,7 @@ namespace Lexico
         public override bool AddDefault(MemberInfo member)
             => member is Type t && (t.IsInterface || t.IsAbstract);
     }
-    
+
     public class IndirectAlternativeAttribute : TerminalAttribute
     {
         public IndirectAlternativeAttribute(string property) {

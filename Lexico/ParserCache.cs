@@ -51,10 +51,10 @@ namespace Lexico
 
         public void Compile(ICompileContext context)
         {
-            context.Child(Inner!, context.Result, context.Success, context.Failure);
+            context.Recursive(Inner!);
         }
 
-        public override string ToString() => Inner?.ToString() ?? "UNSET";
+        public override string ToString() => "Unary";
     }
 
     public static class ReflectionExtensions

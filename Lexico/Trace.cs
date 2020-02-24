@@ -65,9 +65,9 @@ namespace Lexico
 
         public void Pop(IParser parser, bool success, object? value, StringSegment text)
         {
-            var sb = new StringBuilder()
-                     .Append(lastPush.HasValue ? "|" : "<")
-                     .Append(success ? "\u2714 " : "\u2717 ");
+            var sb = new StringBuilder();
+                     //.Append(lastPush.HasValue ? "|" : "<")
+                     //.Append(success ? "\u2714 " : "\u2717 ");
 
             switch (Verbose)
             {
@@ -138,7 +138,7 @@ namespace Lexico
 
         private void WritePush(IParser parser, string? name)
         {
-            var sb = new StringBuilder().Append(">  ").Append(' ', IndentCount);
+            var sb = new StringBuilder()/*.Append(">  ")*/.Append(' ', IndentCount);
 
             switch (Verbose)
             {

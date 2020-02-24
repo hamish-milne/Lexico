@@ -17,7 +17,7 @@ namespace Lexico
         /// <param name="trace">Where to log the parser trace</param>
         /// <typeparam name="T"></typeparam>
         /// <returns>The parsed value</returns>
-        public static T Parse<T>(string str, ITrace trace)
+        public static T Parse<T>(string str, ITrace? trace = null)
         {
             if (TryParse<T>(str, out var output, trace)) {
                 return output;
@@ -34,17 +34,18 @@ namespace Lexico
         /// <param name="trace">Where to log the parser trace</param>
         /// <typeparam name="T"></typeparam>
         /// <returns>True if the parsing succeeded, otherwise false</returns>
-        public static bool TryParse<T>(string str, out T output, ITrace trace)
+        public static bool TryParse<T>(string str, out T output, ITrace? trace = null)
         {
-            if (!compilerCache.TryGetValue(typeof(T), out var compiled)) {
+            var key = (typeof(T), trace == null ? CompileFlags.None : CompileFlags.Trace);
+            if (!compilerCache.TryGetValue(key, out var compiled)) {
                 var parser = ParserCache.GetParser(typeof(T));
-                compiled = CompileContext.Compile(parser, false); // TODO: Optimization options etc.
+                compiled = CompileContext.Compile(parser, key.Item2); // TODO: Optimization options etc.
                 Console.WriteLine($"Approx complexity: {GetILBytes(compiled.Method).Length}");
-                compilerCache.TryAdd(typeof(T), compiled);
+                compilerCache.TryAdd(key, compiled);
             }
             output = default!;
             int position = 0;
-            return ((Parser<T>)compiled)(str, ref position, ref output, trace);
+            return ((Parser<T>)compiled)(str, ref position, ref output, trace!);
         }
 
         public static bool TryParse(string str, Type outputType, out object output, ITrace trace)
@@ -60,7 +61,7 @@ namespace Lexico
             return (byte[])resolver.GetType().GetField("m_code", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(resolver);
         }
 
-        private static readonly ConcurrentDictionary<Type, Delegate> compilerCache
-            = new ConcurrentDictionary<Type, Delegate>();
+        private static readonly ConcurrentDictionary<(Type, CompileFlags), Delegate> compilerCache
+            = new ConcurrentDictionary<(Type, CompileFlags), Delegate>();
     }
 }
