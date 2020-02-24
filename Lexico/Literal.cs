@@ -65,6 +65,7 @@ namespace Lexico
 
         public void Compile(ICompileContext context)
         {
+            context.Append(IfThen(LessThan(Subtract(context.Length, context.Position), Constant(literal.Length)), Goto(context.Failure)));
             for (int i = 0; i < literal.Length; i++) {
                 var c = Constant(literal[i]);
                 context.Append(IfThen(NotEqual(c, context.Peek(i)), Goto(context.Failure)));

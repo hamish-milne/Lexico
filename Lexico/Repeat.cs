@@ -66,7 +66,7 @@ namespace Lexico
         {
             var list = context.Result == null ? null :
                 context.Cache(ListType.IsArray ? (Expression)New(typeof(List<object>)) : (
-                    Condition(Equal(context.Result, null), New(ListType), context.Result)
+                    Condition(Equal(context.Result, Constant(null)), New(ListType), context.Result)
                 ));
             
             // Make a var to store the result before adding to the list
@@ -85,7 +85,9 @@ namespace Lexico
             // Begin the loop
             var loop = Label();
             var loopEnd = Label();
-            context.Append(Assign(output, Default(elementType)));
+            if (output != null) {
+                context.Append(Assign(output, Default(elementType)));
+            }
             context.Append(Label(loop));
             if (Max.HasValue) {
                 context.Append(IfThen(GreaterThanOrEqual(count, Constant(Max.Value)), Goto(loopEnd)));
@@ -97,6 +99,7 @@ namespace Lexico
             }
             context.Child(element, output, null, loopFail);
             AddToList();
+            context.Append(Goto(loop));
             context.Restore(loopFail);
             context.Append(Label(loopEnd));
 

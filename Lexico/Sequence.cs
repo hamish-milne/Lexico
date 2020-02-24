@@ -81,7 +81,7 @@ namespace Lexico
             // Get the current value. If it's not the right type, make a new one.
             // If we're not saving the value, no need to do this
             var obj = context.Result == null ? null :
-                context.Cache(Condition(TypeIs(context.Result, Type), context.Result, New(Type)));
+                context.Cache(Condition(TypeIs(context.Result, Type), Convert(context.Result, Type), New(Type)));
             bool first = true;
             foreach (var (member, parser) in members)
             {
@@ -95,6 +95,7 @@ namespace Lexico
                     member == null || obj == null ? null : MakeMemberAccess(obj, member),
                     null, context.Failure);
             }
+            context.Succeed(obj!);
         }
 
         private static bool IsPrivate(MemberInfo member) => member switch

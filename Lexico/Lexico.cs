@@ -1,4 +1,6 @@
-﻿using System;
+﻿using System.Reflection;
+using System.Collections.Concurrent;
+using System;
 
 namespace Lexico
 {
@@ -34,11 +36,26 @@ namespace Lexico
         /// <returns>True if the parsing succeeded, otherwise false</returns>
         public static bool TryParse<T>(string str, out T output, ITrace trace)
         {
-            object? value = null;
-            IContext context = Context.CreateRoot(str, trace);
-            var result = ParserCache.GetParser(typeof(T)).MatchChild(null, ref context, ref value);
-            output = result ? (T)value! : default!;
-            return result;
+            if (!compilerCache.TryGetValue(typeof(T), out var compiled)) {
+                var parser = ParserCache.GetParser(typeof(T));
+                compiled = CompileContext.Compile(parser, true); // TODO: Optimization options etc.
+                Console.WriteLine($"Approx complexity: {GetILBytes(compiled.Method).Length}");
+                compilerCache.TryAdd(typeof(T), compiled);
+            }
+            output = default!;
+            int position = 0;
+            return ((Parser<T>)compiled)(str, ref position, ref output, trace);
         }
+
+        private static byte[] GetILBytes(MethodInfo method)
+        {
+            var dynamicMethod = method.GetType().GetField("m_owner", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(method);
+            var resolver = dynamicMethod.GetType().GetField("m_resolver", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(dynamicMethod);
+            if (resolver == null) throw new ArgumentException("The dynamic method's IL has not been finalized.");
+            return (byte[])resolver.GetType().GetField("m_code", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(resolver);
+        }
+
+        private static readonly ConcurrentDictionary<Type, Delegate> compilerCache
+            = new ConcurrentDictionary<Type, Delegate>();
     }
 }

@@ -55,9 +55,6 @@ namespace Lexico
         }
 
         public override string ToString() => Inner?.ToString() ?? "UNSET";
-
-        public override int GetHashCode() => Inner?.GetHashCode() ?? 0;
-        public override bool Equals(object obj) => object.ReferenceEquals(this, obj) || object.ReferenceEquals(Inner, obj);
     }
 
     public static class ReflectionExtensions

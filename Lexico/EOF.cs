@@ -37,7 +37,7 @@ namespace Lexico
 
         public void Compile(ICompileContext context)
         {
-            context.Append(IfThen(GreaterThanOrEqual(context.Position, context.Length), Goto(context.Failure)));
+            context.Append(IfThen(LessThan(context.Position, context.Length), Goto(context.Failure)));
             context.Succeed(Empty());
         }
     }
