@@ -5,7 +5,7 @@ namespace Lexico
     /// <summary>
     /// Simplified parsing API
     /// </summary>
-    public class Lexico
+    public static class Lexico
     {
         /// <summary>
         /// Parses a value of the given Type (T) from an input string.
