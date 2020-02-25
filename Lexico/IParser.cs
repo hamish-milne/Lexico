@@ -1,5 +1,4 @@
 using System.Linq;
-using System.Collections.Specialized;
 using System.Collections.Generic;
 using System;
 using System.Linq.Expressions;
@@ -37,7 +36,7 @@ namespace Lexico
         public static void Succeed(this ICompileContext context, Expression value)
         {
             if (context.Result != null) {
-                context.Append(Assign(context.Result, value));
+                context.Append(Assign(context.Result, Convert(value, context.Result.Type)));
             }
             context.Succeed();
         }
@@ -69,7 +68,9 @@ namespace Lexico
         None = 0,
         Trace = 1 << 0,
         CheckImmediateLeftRecursion = 1 << 1, // TODO: Test for this
-        Memoizing = 1 << 2
+        Memoizing = 1 << 2,
+        AggressiveMemoizing = 1 << 3,
+        ValueMemoizing = 1 << 4,
     }
 
     internal delegate bool Parser<T>(string input, ref int position, ref T value, ITrace trace);
@@ -100,7 +101,8 @@ namespace Lexico
         private readonly Expression? trace;
         private readonly bool enableIlrCheck;
         private Expression? memo;
-        private List<IParser> parsersById;
+        private readonly List<IParser> parsersById;
+        private bool doIlrChecks;
 
         private bool InTree(IParser parser) => source == parser || parent?.InTree(parser) == true;
 
@@ -172,6 +174,7 @@ namespace Lexico
             this.enableIlrCheck = enableIlrCheck;
             this.memo = parent.memo;
             this.parsersById = parent.parsersById;
+            this.doIlrChecks = parent.doIlrChecks;
         }
 
         public static Delegate Compile(IParser parser, CompileFlags flags)
@@ -187,6 +190,9 @@ namespace Lexico
             if ((flags & CompileFlags.Memoizing) != 0) {
                 context.memo = context.Cache(New(typeof(Memo)));
                 context.Append(Call(context.memo, nameof(Memo.Init), Type.EmptyTypes));
+            }
+            if ((flags & CompileFlags.CheckImmediateLeftRecursion) != 0) {
+                context.doIlrChecks = true;
             }
             context.Child(parser, context.Result, onSuccess, onFail);
             var block = context.MakeFunctionBlock();
@@ -211,7 +217,7 @@ namespace Lexico
                 var tmpResult = Parameter(outType.MakeByRefType());
                 var tmpSuccess = Label();
                 var tmpFail = Label();
-                var childContext = new CompileContext(this, child, tmpResult, tmpSuccess, tmpFail, true);
+                var childContext = new CompileContext(this, child, tmpResult, tmpSuccess, tmpFail, doIlrChecks);
                 child.Compile(childContext);
 
                 // Set the placeholder to the lambda we just built up
@@ -257,7 +263,6 @@ namespace Lexico
                 Append(IfThen(And(Equal(ilrPos, Position), NotEqual(Constant((ulong)0), And(ilrStack, Constant(currentBit)))), Goto(onFail)));
                 Append(IfThen(NotEqual(ilrPos, Position), Block(Assign(ilrPos, Position), Assign(ilrStack, Constant((ulong)0)))));
                 Append(OrAssign(ilrStack, Constant(currentBit)));
-
             }
 
             var memoOnFail = onFail;
@@ -277,10 +282,6 @@ namespace Lexico
                 // We are currently recursing, or did in the past, so we should use the placeholder value
                 CallRecursionTarget(child, result, onSuccess, memoOnFail);
             }
-            // else if (InTree(child))
-            // {
-            //     throw new InvalidOperationException($"{child} was recursed into inconsistently. Parsers must be stateless and repeatable.");
-            // }
             else
             {
                 // No recursion; just dump the results in the current set
@@ -330,8 +331,9 @@ namespace Lexico
         private Expression MakeFunctionBlock()
         {
             // TODO: Put trace stuff into general 'make block' function
+            // TODO: Add names and text to trace calls
             // Convert the gotos to a boolean return value
-            var doTrace = trace != null && !(source is UnaryParser);
+            var doTrace = trace != null && source != null && !(source is UnaryParser);
             var end = Label(typeof(bool));
             var saveRefArgs = byRefResult == null ? (Expression)Empty()
                 : Block(Assign(byRefResult, Result), Assign(byRefPosition, Position));
@@ -372,44 +374,5 @@ namespace Lexico
             savePoints.Add(restore, (Cache(Position), Cache(ilrStack), Cache(ilrPos)));
             return restore;
         }
-
-        // private class RecursionCheck : ICompileContext
-        // {
-        //     public LabelTarget? Success => null;
-        //     public LabelTarget Failure { get; } = Label();
-        //     public Expression Position { get; } = Parameter(typeof(int));
-        //     public Expression? Result => null;
-        //     public Expression Length { get; } = Parameter(typeof(int));
-        //     public Expression String { get; } = Parameter(typeof(string));
-        //     public Expression ClearILR { get; } = Empty();
-        //     public void Append(Expression statement) {}
-        //     public Expression Cache(Expression value) => Parameter(value.Type);
-        //     public void Restore(LabelTarget savePoint) {}
-        //     public LabelTarget Save() => Label();
-
-        //     public HashSet<IParser> Children { get; } = new HashSet<IParser>();
-        //     public CompileContext parent;
-
-        //     public void Child(IParser child, Expression? result, LabelTarget? onSuccess, LabelTarget onFail)
-        //     {
-        //         if (!parent.recursionTargets.ContainsKey(child) && Children.Add(child)) {
-        //             child.Compile(this);
-        //         }
-        //     }
-        // }
-
-        // private bool CheckRecursion(IParser child)
-        // {
-        //     if (knownNotRecursive.Contains(child)) {
-        //         return false;
-        //     }
-        //     var ctx = new RecursionCheck{parent = this};
-        //     child.Compile(ctx);
-        //     var result = ctx.Children.Contains(child);
-        //     if (!result) {
-        //         knownNotRecursive.Add(child);
-        //     }
-        //     return result;
-        // }
     }
 }

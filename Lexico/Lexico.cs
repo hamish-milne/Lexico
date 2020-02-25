@@ -36,22 +36,34 @@ namespace Lexico
         /// <returns>True if the parsing succeeded, otherwise false</returns>
         public static bool TryParse<T>(string str, out T output, ITrace? trace = null)
         {
-            var key = (typeof(T), trace == null ? CompileFlags.None : CompileFlags.Trace);
-            key.Item2 |= CompileFlags.Memoizing;
-            if (!compilerCache.TryGetValue(key, out var compiled)) {
-                var parser = ParserCache.GetParser(typeof(T));
-                compiled = CompileContext.Compile(parser, key.Item2); // TODO: Optimization options etc.
-                Console.WriteLine($"Approx complexity: {GetILBytes(compiled.Method).Length}");
-                compilerCache.TryAdd(key, compiled);
-            }
-            output = default!;
+            var compiled = Compile(typeof(T), trace == null ? CompileFlags.None : CompileFlags.Trace);
             int position = 0;
+            output = default!;
             return ((Parser<T>)compiled)(str, ref position, ref output, trace!);
         }
 
-        public static bool TryParse(string str, Type outputType, out object output, ITrace trace)
+        private static Delegate Compile(Type type, CompileFlags flags)
         {
-            throw new NotImplementedException();
+            var key = (type, flags);
+            // TODO: Allow the user to set these flags
+            key.flags |= CompileFlags.Memoizing;
+            key.flags |= CompileFlags.CheckImmediateLeftRecursion;
+            if (!compilerCache.TryGetValue(key, out var compiled)) {
+                var parser = ParserCache.GetParser(type);
+                compiled = CompileContext.Compile(parser, key.flags);
+                Console.WriteLine($"Approx complexity: {GetILBytes(compiled.Method).Length}");
+                compilerCache.TryAdd(key, compiled);
+            }
+            return compiled;
+        }
+
+        public static bool TryParse(string str, Type outputType, out object output, ITrace? trace = null)
+        {
+            var compiled = Compile(outputType, trace == null ? CompileFlags.None : CompileFlags.Trace);
+            var args = new object[]{str, 0, null!, trace!};
+            var result = (bool)compiled.DynamicInvoke(args);
+            output = args[2];
+            return result;
         }
 
         private static byte[] GetILBytes(MethodInfo method)

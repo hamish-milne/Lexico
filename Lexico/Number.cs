@@ -110,5 +110,7 @@ namespace Lexico
             context.Append(AddAssign(context.Position, PropertyOrField(match, nameof(Match.Length))));
             context.Succeed(Call(parseMethod, PropertyOrField(match, nameof(Match.Value))));
         }
+
+        public override string ToString() => $"Number ({OutputType.Name})";
     }
 }
