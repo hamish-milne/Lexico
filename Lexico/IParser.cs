@@ -67,7 +67,7 @@ namespace Lexico
     {
         None = 0,
         Trace = 1 << 0,
-        CheckImmediateLeftRecursion = 1 << 1, // TODO: Test for this
+        CheckImmediateLeftRecursion = 1 << 1,
         Memoizing = 1 << 2,
         AggressiveMemoizing = 1 << 3,
         ValueMemoizing = 1 << 4,
@@ -132,6 +132,19 @@ namespace Lexico
             public bool Remember(int id, int pos, ulong ilr) => cache.Add((id, pos, ilr));
         }
 
+        private struct AggressiveMemo
+        {
+            private HashSet<(int, int)> cache;
+
+            public void Init() {
+                cache = new HashSet<(int, int)>();
+            }
+
+            public bool Check(int id, int pos) => cache.Contains((id, pos));
+
+            public bool Remember(int id, int pos) => cache.Add((id, pos));
+        }
+
         private CompileContext(Expression text, Expression position, Expression result, LabelTarget onSuccess, LabelTarget onFail, Expression? trace)
         {
             this.Success = onSuccess;
@@ -187,8 +200,9 @@ namespace Lexico
             var traceParam = Parameter(typeof(ITrace));
             var context = new CompileContext(text, position, result, onSuccess, onFail,
                 (flags & CompileFlags.Trace) != 0 ? traceParam : null);
-            if ((flags & CompileFlags.Memoizing) != 0) {
-                context.memo = context.Cache(New(typeof(Memo)));
+            if ((flags & (CompileFlags.Memoizing | CompileFlags.AggressiveMemoizing)) != 0) {
+                var memoType = (flags & CompileFlags.AggressiveMemoizing) != 0 ? typeof(AggressiveMemo) : typeof(Memo);
+                context.memo = context.Cache(New(memoType));
                 context.Append(Call(context.memo, nameof(Memo.Init), Type.EmptyTypes));
             }
             if ((flags & CompileFlags.CheckImmediateLeftRecursion) != 0) {
@@ -272,8 +286,13 @@ namespace Lexico
                     parsersById.Add(child);
                 }
                 var parserId = Constant(parsersById.IndexOf(child));
-                Append(IfThen(Call(memo, nameof(Memo.Check), Type.EmptyTypes, parserId, Position, ilrStack), Goto(onFail)));
-                remember = Call(memo, nameof(Memo.Remember), Type.EmptyTypes, parserId, Cache(Position), Cache(ilrStack));
+                if (memo.Type == typeof(AggressiveMemo)) {
+                    Append(IfThen(Call(memo, nameof(AggressiveMemo.Check), Type.EmptyTypes, parserId, Position), Goto(onFail)));
+                    remember = Call(memo, nameof(AggressiveMemo.Remember), Type.EmptyTypes, parserId, Cache(Position));
+                } else {
+                    Append(IfThen(Call(memo, nameof(Memo.Check), Type.EmptyTypes, parserId, Position, ilrStack), Goto(onFail)));
+                    remember = Call(memo, nameof(Memo.Remember), Type.EmptyTypes, parserId, Cache(Position), Cache(ilrStack));
+                }
                 memoOnFail = Label();
             }
 

@@ -46,11 +46,12 @@ namespace Lexico
         {
             var key = (type, flags);
             // TODO: Allow the user to set these flags
-            key.flags |= CompileFlags.Memoizing;
+            key.flags |= CompileFlags.AggressiveMemoizing;
             key.flags |= CompileFlags.CheckImmediateLeftRecursion;
             if (!compilerCache.TryGetValue(key, out var compiled)) {
                 var parser = ParserCache.GetParser(type);
                 compiled = CompileContext.Compile(parser, key.flags);
+                // TODO: Put debug metrics into the trace
                 Console.WriteLine($"Approx complexity: {GetILBytes(compiled.Method).Length}");
                 compilerCache.TryAdd(key, compiled);
             }
