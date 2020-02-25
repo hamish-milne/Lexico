@@ -36,23 +36,18 @@ namespace Lexico
         /// <returns>True if the parsing succeeded, otherwise false</returns>
         public static bool TryParse<T>(string str, out T output, ITrace? trace = null)
         {
-            var compiled = Compile(typeof(T), trace == null ? CompileFlags.None : CompileFlags.Trace);
+            var compiled = Compile(typeof(T), trace != null);
             int position = 0;
             output = default!;
             return ((Parser<T>)compiled)(str, ref position, ref output, trace!);
         }
 
-        private static Delegate Compile(Type type, CompileFlags flags)
+        private static Delegate Compile(Type type, bool hasTrace)
         {
-            var key = (type, flags);
-            // TODO: Allow the user to set these flags
-            key.flags |= CompileFlags.AggressiveMemoizing;
-            key.flags |= CompileFlags.CheckImmediateLeftRecursion;
+            var key = (type, hasTrace);
             if (!compilerCache.TryGetValue(key, out var compiled)) {
                 var parser = ParserCache.GetParser(type);
-                compiled = CompileContext.Compile(parser, key.flags);
-                // TODO: Put debug metrics into the trace
-                Console.WriteLine($"Approx complexity: {GetILBytes(compiled.Method).Length}");
+                compiled = CompileContext.Compile(parser, hasTrace ? CompileFlags.Trace : CompileFlags.None);
                 compilerCache.TryAdd(key, compiled);
             }
             return compiled;
@@ -60,22 +55,14 @@ namespace Lexico
 
         public static bool TryParse(string str, Type outputType, out object output, ITrace? trace = null)
         {
-            var compiled = Compile(outputType, trace == null ? CompileFlags.None : CompileFlags.Trace);
+            var compiled = Compile(outputType, trace != null);
             var args = new object[]{str, 0, null!, trace!};
             var result = (bool)compiled.DynamicInvoke(args);
             output = args[2];
             return result;
         }
 
-        private static byte[] GetILBytes(MethodInfo method)
-        {
-            var dynamicMethod = method.GetType().GetField("m_owner", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(method);
-            var resolver = dynamicMethod.GetType().GetField("m_resolver", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(dynamicMethod);
-            if (resolver == null) throw new ArgumentException("The dynamic method's IL has not been finalized.");
-            return (byte[])resolver.GetType().GetField("m_code", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(resolver);
-        }
-
-        private static readonly ConcurrentDictionary<(Type, CompileFlags), Delegate> compilerCache
-            = new ConcurrentDictionary<(Type, CompileFlags), Delegate>();
+        private static readonly ConcurrentDictionary<(Type, bool), Delegate> compilerCache
+            = new ConcurrentDictionary<(Type, bool), Delegate>();
     }
 }

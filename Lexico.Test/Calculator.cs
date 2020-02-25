@@ -3,6 +3,7 @@ using System;
 
 namespace Lexico.Calculator
 {
+    [CompileFlags(CompileFlags.CheckImmediateLeftRecursion | CompileFlags.AggressiveMemoizing)]
     public abstract class Expression
     {
         public abstract float Value { get; }
