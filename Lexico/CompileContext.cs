@@ -195,6 +195,27 @@ namespace Lexico
 
         public void Child(IParser child, Expression? result, LabelTarget? onSuccess, LabelTarget onFail)
         {
+            if (recursionTargets.ContainsKey(child))
+            {
+                // We are currently recursing, or did in the past, so we should use the placeholder value
+                CallRecursionTarget(child, result, onSuccess, onFail);
+                return;
+            }
+
+            // TODO: Remove the 'is UnaryParser' check; instead don't trace on the recursion wrapper calls
+            var doTrace = trace != null && !(child is UnaryParser);
+            // In some cases we need to rewrite the result labels to add code at the end of parsing
+            var childSuccess = doTrace ? Label() : onSuccess;
+            var childFail = (doTrace || memo != null) ? Label() : onFail;
+
+            var childContext = new CompileContext(this, child, result, childSuccess, childFail, false);
+            child.Compile(childContext);
+            // If recursion became apparent during compilation...
+            if (recursionTargets.ContainsKey(child)) {
+                CallRecursionTarget(child, result, onSuccess, onFail);
+                return;
+            }
+
             if (enableIlrCheck)
             {
                 if (!recursionList.Contains(child)) {
@@ -209,102 +230,128 @@ namespace Lexico
                 // AND the position is the same..
                 // THEN it's immediate left recursion, so fail.
                 // OTHERWISE, if the position *has* changed then clear the ILR flags and update it.
+                // TODO: Add ILR failures to trace?
                 var currentBit = (ulong)1 << recursionList.IndexOf(child);
                 Append(IfThen(And(Equal(ilrPos, Position), NotEqual(Constant((ulong)0), And(ilrStack, Constant(currentBit)))), Goto(onFail)));
                 Append(IfThen(NotEqual(ilrPos, Position), Block(Assign(ilrPos, Position), Assign(ilrStack, Constant((ulong)0)))));
                 Append(OrAssign(ilrStack, Constant(currentBit)));
             }
 
-            var memoOnFail = onFail;
+            // Trace begin
+            Expression segmentExpr = null!;
+            if (doTrace) {
+                var startPos = Cache(Position);
+                segmentExpr = New(stringSegment, String, startPos, Subtract(Position, startPos));
+                Append(Call(trace, nameof(ITrace.Push), Type.EmptyTypes, Constant(child, typeof(IParser)), Constant(null, typeof(string))));
+            }
+
+            // Memo begin:
+            // Don't try to re-parse sections we know will fail (if the Memoizing flag is enabled)
+            var memoEnd = childFail;
             Expression remember = null!;
             if (memo != null) {
+                memoEnd = Label();
                 if (!parsersById.Contains(child)) {
                     parsersById.Add(child);
                 }
                 var parserId = Constant(parsersById.IndexOf(child));
                 if (memo.Type == typeof(AggressiveMemo)) {
-                    Append(IfThen(Call(memo, nameof(AggressiveMemo.Check), Type.EmptyTypes, parserId, Position), Goto(onFail)));
+                    // Aggressize memo only cares about the parser ID and current position and *not* the ILR state.
+                    // This means it may incorrectly report a parse failure if a potentially correct tree is blocked
+                    // due to the ILR stack used on the first attempt. However it essentially guarantees linear complexity.
+                    Append(IfThen(Call(memo, nameof(AggressiveMemo.Check), Type.EmptyTypes, parserId, Position), Goto(memoEnd)));
                     remember = Call(memo, nameof(AggressiveMemo.Remember), Type.EmptyTypes, parserId, Cache(Position));
                 } else {
-                    Append(IfThen(Call(memo, nameof(Memo.Check), Type.EmptyTypes, parserId, Position, ilrStack), Goto(onFail)));
+                    // 'Normal' memo cares about the position, parser ID, and ILR state, so it will never report
+                    // a false negative, but may not prevent factorial complexity in all cases.
+                    Append(IfThen(Call(memo, nameof(Memo.Check), Type.EmptyTypes, parserId, Position, ilrStack), Goto(memoEnd)));
                     remember = Call(memo, nameof(Memo.Remember), Type.EmptyTypes, parserId, Cache(Position), Cache(ilrStack));
                 }
-                memoOnFail = Label();
             }
 
-            if (recursionTargets.ContainsKey(child))
-            {
-                // We are currently recursing, or did in the past, so we should use the placeholder value
-                CallRecursionTarget(child, result, onSuccess, memoOnFail);
-            }
-            else
-            {
-                // No recursion; just dump the results in the current set
-                if (trace != null && !(child is UnaryParser)) {
-                    Append(Call(trace, nameof(ITrace.Push), Type.EmptyTypes, Constant(child, typeof(IParser)), Constant(null, typeof(string))));
-                    var childSuccess = Label();
-                    var childFail = Label();
-                    var childContext = new CompileContext(this, child, result, childSuccess, childFail, false);
-                    child.Compile(childContext);
-                    // If recursion became apparent during compilation...
-                    if (recursionTargets.ContainsKey(child)) {
-                        CallRecursionTarget(child, result, onSuccess, memoOnFail);
-                    }
-                    else {
-                        Append(Block(childContext.variables, childContext.statements));
-                        statements.AddRange(new Expression[]{
-                            Label(childFail),
-                            Call(trace, nameof(ITrace.Pop), Type.EmptyTypes, Constant(child, typeof(IParser)), Constant(false), Constant(null), Constant(new StringSegment())),
-                            Goto(memoOnFail),
-                            Label(childSuccess),
-                            Call(trace, nameof(ITrace.Pop), Type.EmptyTypes, Constant(child, typeof(IParser)), Constant(true), result == null ? (Expression)Constant(null) : Convert(result, typeof(object)), Constant(new StringSegment())),
-                            onSuccess == null ? (Expression)Empty() : Goto(onSuccess)
-                        });
-                    }
-                } else {
-                    var childContext = new CompileContext(this, child, result, onSuccess, memoOnFail, false);
-                    child.Compile(childContext);
-                    // If recursion became apparent during compilation...
-                    if (recursionTargets.ContainsKey(child)) {
-                        CallRecursionTarget(child, result, onSuccess, memoOnFail);
-                    } else {
-                        Append(Block(childContext.variables, childContext.statements));
-                    }
-                }
-            }
+            // The actual child parser code:
+            Append(Block(childContext.variables, childContext.statements));
 
+            // Memo end
             if (memo != null) {
                 var skip = Label();
                 Append(Goto(skip));
-                Append(Label(memoOnFail));
+                Append(Label(childFail));
                 Append(remember!);
-                Append(Goto(onFail));
                 Append(Label(skip));
+                if (!doTrace) {
+                    Append(Label(memoEnd));
+                }
+            }
+
+            // Trace end
+            if (doTrace) {
+                var sourceExpr = Constant(child, typeof(IParser));
+                statements.AddRange(new Expression[]{
+                    Label(memoEnd),
+                    Call(trace, nameof(ITrace.Pop), Type.EmptyTypes, sourceExpr,
+                        Constant(false),
+                        Constant(null),
+                        segmentExpr
+                    ),
+                    Goto(onFail),
+                    Label(childSuccess),
+                    Call(trace, nameof(ITrace.Pop), Type.EmptyTypes, sourceExpr,
+                        Constant(true),
+                        result == null ? (Expression)Constant(null) : Convert(result, typeof(object)),
+                        segmentExpr
+                    ),
+                    onSuccess == null ? (Expression)Empty() : Goto(onSuccess)
+                });
             }
         }
+
+        private static readonly ConstructorInfo stringSegment =
+            typeof(StringSegment).GetConstructor(new []{typeof(string), typeof(int), typeof(int)});
 
         private Expression MakeFunctionBlock()
         {
             // TODO: Put trace stuff into general 'make block' function
-            // TODO: Add names and text to trace calls
             // Convert the gotos to a boolean return value
             var doTrace = trace != null && source != null && !(source is UnaryParser);
             var end = Label(typeof(bool));
             var saveRefArgs = byRefResult == null ? (Expression)Empty()
                 : Block(Assign(byRefResult, Result), Assign(byRefPosition, Position));
-            var traceSuccess = !doTrace ? (Expression)Empty()
-                : Call(trace, nameof(ITrace.Pop), Type.EmptyTypes, Constant(source, typeof(IParser)), Constant(true), Result == null ? (Expression)Constant(null) : Convert(Result, typeof(object)), Constant(new StringSegment()));
-            var traceFail = !doTrace ? (Expression)Empty()
-                : Call(trace, nameof(ITrace.Pop), Type.EmptyTypes, Constant(source, typeof(IParser)), Constant(false), Constant(null), Constant(new StringSegment()));
-            var traceStart = !doTrace ? (Expression)Empty()
-                : Call(trace, nameof(ITrace.Push), Type.EmptyTypes, Constant(source, typeof(IParser)), Constant(null, typeof(string)));
-            return Block(variables, new []{traceStart}.Concat(statements).Concat(new Expression[]{
+            if (doTrace)
+            {
+                var startPos = Variable(typeof(int));
+                var sourceExpr = Constant(source, typeof(IParser));
+                var segmentExpr = New(stringSegment, String, startPos, Subtract(Position, startPos));
+                return Block(variables.Concat(new []{startPos}), new Expression[]{
+                    Assign(startPos, Position),
+                    Call(trace, nameof(ITrace.Push), Type.EmptyTypes, sourceExpr,
+                        Constant(null, typeof(string))
+                    ),
+                }.Concat(statements).Concat(new Expression[]{
+                    Label(Success ?? throw new InvalidOperationException()),
+                    Call(trace, nameof(ITrace.Pop), Type.EmptyTypes, sourceExpr,
+                        Constant(true),
+                        Result == null ? (Expression)Constant(null) : Convert(Result, typeof(object)),
+                        segmentExpr
+                    ),
+                    saveRefArgs,
+                    Return(end, Constant(true)),
+                    Label(Failure),
+                    Call(trace, nameof(ITrace.Pop), Type.EmptyTypes, sourceExpr,
+                        Constant(false),
+                        Constant(null),
+                        segmentExpr
+                    ),
+                    saveRefArgs,
+                    Return(end, Constant(false)),
+                    Label(end, Constant(false))
+                }));
+            }
+            return Block(variables, statements.Concat(new Expression[]{
                 Label(Success ?? throw new InvalidOperationException()),
-                traceSuccess,
                 saveRefArgs,
                 Return(end, Constant(true)),
                 Label(Failure),
-                traceFail,
                 saveRefArgs,
                 Return(end, Constant(false)),
                 Label(end, Constant(false))

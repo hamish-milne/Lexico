@@ -8,7 +8,7 @@ namespace Lexico.Test
         [Fact]
         public void CalculatorTest()
         {
-            var expr = Lexico.Parse<Calculator.Expression>("5-(3/2)^(2+1)", new ConsoleTrace());
+            var expr = Lexico.Parse<Calculator.Expression>("5-(3/2)^(2+1)", new ConsoleTrace{Verbose = true});
             Assert.Equal(1.625f, expr.Value);
         }
 
