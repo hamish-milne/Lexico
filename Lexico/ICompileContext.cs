@@ -15,7 +15,7 @@ namespace Lexico
         Expression Cache(Expression value);
         Expression String { get; }
         void Append(Expression statement);
-        void Child(IParser child, Expression? result, LabelTarget? onSuccess, LabelTarget onFail);
+        void Child(IParser child, string? name, Expression? result, LabelTarget? onSuccess, LabelTarget onFail);
         void Recursive(IParser child);
     }
 

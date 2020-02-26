@@ -144,7 +144,7 @@ namespace Lexico
             if ((flags & (CompileFlags.Memoizing | CompileFlags.CheckImmediateLeftRecursion)) != 0) {
                 context.doIlrChecks = true;
             }
-            context.Child(parser, context.Result, onSuccess, onFail);
+            context.Child(parser, null, context.Result, onSuccess, onFail);
             var block = context.MakeFunctionBlock();
             return Lambda(
                 typeof(Parser<>).MakeGenericType(parser.OutputType),
@@ -193,11 +193,12 @@ namespace Lexico
             }
         }
 
-        public void Child(IParser child, Expression? result, LabelTarget? onSuccess, LabelTarget onFail)
+        public void Child(IParser child, string? name, Expression? result, LabelTarget? onSuccess, LabelTarget onFail)
         {
             if (recursionTargets.ContainsKey(child))
             {
                 // We are currently recursing, or did in the past, so we should use the placeholder value
+                // TODO: Add specific/named trace around this:
                 CallRecursionTarget(child, result, onSuccess, onFail);
                 return;
             }
@@ -242,7 +243,7 @@ namespace Lexico
             if (doTrace) {
                 var startPos = Cache(Position);
                 segmentExpr = New(stringSegment, String, startPos, Subtract(Position, startPos));
-                Append(Call(trace, nameof(ITrace.Push), Type.EmptyTypes, Constant(child, typeof(IParser)), Constant(null, typeof(string))));
+                Append(Call(trace, nameof(ITrace.Push), Type.EmptyTypes, Constant(child, typeof(IParser)), Constant(name, typeof(string))));
             }
 
             // Memo begin:

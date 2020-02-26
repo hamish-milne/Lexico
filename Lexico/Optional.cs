@@ -51,7 +51,7 @@ namespace Lexico
         {
             var savePoint = context.Save();
             var skip = context.Success == null ? Label() : null;
-            context.Child(child, context.Result, context.Success ?? skip, savePoint);
+            context.Child(child, null, context.Result, context.Success ?? skip, savePoint);
             context.Restore(savePoint);
             if (skip != null) {
                 context.Append(Label(skip));

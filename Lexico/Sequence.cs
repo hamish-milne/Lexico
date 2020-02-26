@@ -87,11 +87,11 @@ namespace Lexico
             {
                 // If not the first item, add a Separator
                 if (!first && separator != null) {
-                    context.Child(separator, null, null, context.Failure);
+                    context.Child(separator, "(Separator)", null, null, context.Failure);
                 }
                 first = false;
                 // Match the item and, if we're saving the value, write it back to the member in question
-                context.Child(parser,
+                context.Child(parser, member?.Name,
                     member == null || obj == null ? null : MakeMemberAccess(obj, member),
                     null, context.Failure);
             }

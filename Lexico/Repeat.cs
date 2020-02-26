@@ -79,7 +79,7 @@ namespace Lexico
             }
 
             // The first element must match
-            context.Child(element, output, null, context.Failure);
+            context.Child(element, null, output, null, context.Failure);
             AddToList();
 
             // Begin the loop
@@ -95,9 +95,9 @@ namespace Lexico
             // Subsequent elements can fail
             var loopFail = context.Save();
             if (separator != null) {
-                context.Child(separator, null, null, loopFail);
+                context.Child(separator, "(Separator)", null, null, loopFail);
             }
-            context.Child(element, output, null, loopFail);
+            context.Child(element, null, output, null, loopFail);
             AddToList();
             context.Append(Goto(loop));
             context.Restore(loopFail);

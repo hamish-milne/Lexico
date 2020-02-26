@@ -74,7 +74,7 @@ namespace Lexico
             foreach (var option in options)
             {
                 var savePoint = context.Save();
-                context.Child(option, context.Result, context.Success, savePoint);
+                context.Child(option, null, context.Result, context.Success, savePoint);
                 context.Restore(savePoint);
             }
             context.Fail();
