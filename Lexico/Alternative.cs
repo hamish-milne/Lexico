@@ -12,8 +12,8 @@ namespace Lexico
     /// </summary>
     public class AlternativeAttribute : TermAttribute
     {
-        // ReSharper disable once UnusedMember.Global
-        public AlternativeAttribute() { Options = null; } // Required as Activator.CreateInstance cannot use params constructors to create a parameterless instance
+        // ReSharper disable once UnusedMember.Global - Required as Activator.CreateInstance cannot use params constructors to create a parameterless instance
+        public AlternativeAttribute() { Options = null; }
         public AlternativeAttribute(params Type[] options) { Options = options; }
         public Type[]? Options { get; }
         public override int Priority => 10;

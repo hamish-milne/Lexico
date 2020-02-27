@@ -13,21 +13,11 @@ namespace Lexico
     [AttributeUsage(Field | Property | Class | Struct, AllowMultiple = true)]
     public class TermAttribute : Attribute
     {
-        public TermAttribute([CallerLineNumber] int termOrder = 0)
-        {
-            Order = termOrder;
-        }
-
         /// <summary>
         /// Determines the order that parsers are generated in. Higher priority attributes are evaluated first,
         /// and therefore applied last in the chain.
         /// </summary>
         public virtual int Priority => -10;
-
-        /// <summary>
-        /// Determines the order of this term if contained within a sequence.
-        /// </summary>
-        public int Order { get; }
 
         /// <summary>
         /// Creates a Parser based on this attribute

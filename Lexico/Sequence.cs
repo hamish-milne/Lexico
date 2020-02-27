@@ -40,7 +40,6 @@ namespace Lexico
                 t.GetMembers(Instance | Public | NonPublic)
                     .Where(m => m is FieldInfo || m is PropertyInfo)
                     .Where(m => m.GetCustomAttributes<TermAttribute>(true).Any())
-                    .OrderBy(m => m.GetCustomAttributes<TermAttribute>().First().Order)
             );
             var members = new List<MemberInfo>();
             // Combine virtual/override members into one list
