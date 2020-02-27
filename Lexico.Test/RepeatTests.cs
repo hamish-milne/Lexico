@@ -29,5 +29,14 @@ namespace Lexico.Test
 
         [Fact]
         public void GenericRepeatParser() => Assert.Equal(Lexico.Parse<GenericRepeat<int>>("(1, 1, 3, 5, 7)").Values, new []{1, 1, 3, 5, 7});
+
+        [SurroundBy("[", "]")]
+        private class OptionalRepeat
+        {
+            [Optional] public NonGenericRepeat List;
+        }
+
+        [Fact]
+        public void OptionalRepeatOfNothingReturnsNull() => Assert.Null(Lexico.Parse<OptionalRepeat>("[]").List);
     }
 }

@@ -40,7 +40,7 @@ namespace Lexico
     {
         public RepeatParser(Type listType, IParser? separator, int? min, int? max)
         {
-            this.ListType = listType ?? throw new ArgumentNullException(nameof(listType));
+            ListType = listType ?? throw new ArgumentNullException(nameof(listType));
             elementType = listType.IsArray ? listType.GetElementType() : listType.GetGenericArguments()[0];
             element = ParserCache.GetParser(elementType);
             if (!typeof(IList).IsAssignableFrom(listType)) {
