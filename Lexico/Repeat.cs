@@ -68,7 +68,7 @@ namespace Lexico
                 context.Cache(ListType.IsArray ? (Expression)New(typeof(List<object>)) : (
                     Condition(Equal(context.Result, Constant(null)), New(ListType), context.Result)
                 ));
-            
+            context.Append(Call(list, nameof(IList.Clear), Type.EmptyTypes));
             // Make a var to store the result before adding to the list
             var output = context.Result == null ? null : context.Cache(Default(elementType));
             var count = context.Cache(Constant(0));
