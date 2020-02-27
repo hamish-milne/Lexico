@@ -65,5 +65,27 @@ namespace Lexico.Test
 
         [Fact]
         public void WriteProtectedField() => Assert.Equal(5, Lexico.Parse<ProtectedField>("5").Val);
+
+        private class NonGenericSequence
+        {
+            [Whitespace] public int a;
+            [Term] public int b;
+            [Whitespace] public int c;
+        }
+
+        private class GenericSequence<T>
+        {
+            [Whitespace] public Unnamed a;
+            [Term] public T b;
+            [Whitespace] public Unnamed c;
+        }
+
+        private class GenericWrapper : GenericSequence<int> { }
+
+        [Fact]
+        public void OrderOfSequenceCorrect() => Lexico.Parse<NonGenericSequence>(" 5 ");
+
+        [Fact]
+        public void OrderOfGenericSequenceCorrect() => Lexico.Parse<GenericWrapper>(" 5 ");
     }
 }
