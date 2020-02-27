@@ -32,9 +32,14 @@
 ✔ Custom terminals @done(20-02-08 10:22)
 ✔ Punctuation attributes (instead of Unnamed) @done(20-02-08 22:39)
 ☐ UTF8 support
+    ☐ Token streams
 ☐ Interface for Location
 ☐ Precise error reporting
 ☐ Formatting
 ☐ JSON implementation!!
 ☐ Regex implementation!!
 ✔ Perf test @done(20-02-23 13:33)
+☐ Additional constructs
+    ☐ Lookahead
+    ☐ Lookbehind
+    ☐ Negation
