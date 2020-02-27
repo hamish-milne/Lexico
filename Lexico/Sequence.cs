@@ -92,7 +92,11 @@ namespace Lexico
                 first = false;
                 // Match the item and, if we're saving the value, write it back to the member in question
                 context.Child(parser, member?.Name,
-                    member == null || obj == null || (member as PropertyInfo)?.CanWrite == false ? null : MakeMemberAccess(obj, member),
+                    member == null
+                        || obj == null
+                        || (member as PropertyInfo)?.CanWrite == false
+                        || (member as FieldInfo)?.IsInitOnly == true
+                        ? null : MakeMemberAccess(obj, member),
                     null, context.Failure);
             }
             context.Succeed(obj!);
