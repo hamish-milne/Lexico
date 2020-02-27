@@ -41,14 +41,14 @@ namespace Lexico
         };
 
         public override bool AddDefault(MemberInfo member)
-            => member is Type t && defaultNumbers.ContainsKey(t);
+            => member.GetMemberType() is Type t && defaultNumbers.ContainsKey(t);
     }
 
     internal class NumberParser : IParser
     {
         public NumberParser(NumberStyles styles, Type numberType)
         {
-            parseMethod = numberType.GetMethod(nameof(int.Parse), new []{typeof(string)})
+            parseMethod = numberType.GetMethod(nameof(int.Parse), new []{typeof(string), typeof(NumberStyles)})
                 ?? throw new ArgumentException($"{numberType} has no Parse method");
             // TODO: Able to set CultureInfo?
             var formatInfo = CultureInfo.InvariantCulture.NumberFormat;
@@ -90,8 +90,10 @@ namespace Lexico
                 pattern.Append(@"\s*");
             }
             regex = new Regex(pattern.ToString(), RegexOptions.Compiled);
+            this.styles = styles;
         }
 
+        private readonly NumberStyles styles;
         private readonly MethodInfo parseMethod;
         private readonly Regex regex;
 
@@ -108,7 +110,7 @@ namespace Lexico
             ));
             context.Append(IfThen(Not(PropertyOrField(match, nameof(Match.Success))), Goto(context.Failure)));
             context.Append(AddAssign(context.Position, PropertyOrField(match, nameof(Match.Length))));
-            context.Succeed(Call(parseMethod, PropertyOrField(match, nameof(Match.Value))));
+            context.Succeed(Call(parseMethod, PropertyOrField(match, nameof(Match.Value)), Constant(styles)));
         }
 
         public override string ToString() => $"Number ({OutputType.Name})";

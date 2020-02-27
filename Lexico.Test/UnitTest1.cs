@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using Xunit;
 
@@ -69,14 +70,14 @@ namespace Lexico.Test
         private class NonGenericSequence
         {
             [Whitespace] public int a;
-            [Term] public int b;
+            [Term, NumberStyle(NumberStyles.None)] public int b;
             [Whitespace] public int c;
         }
 
         private class GenericSequence<T>
         {
             [Whitespace] public Unnamed a;
-            [Term] public T b;
+            [Term, NumberStyle(NumberStyles.None)] public T b;
             [Whitespace] public Unnamed c;
         }
 
