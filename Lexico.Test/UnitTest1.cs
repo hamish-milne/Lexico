@@ -23,5 +23,29 @@ namespace Lexico.Test
             }
             ");
         }
+
+        private class GetOnlyProp
+        {
+            [field:Term] public float Value { get; }
+        }
+
+        [Fact]
+        public void WriteGetOnlyProperty() => Lexico.Parse<GetOnlyProp>("5");
+
+        private class GetOnlyPropWithPrivateSet
+        {
+            [field:Term] public float Value { get; private set; }
+        }
+
+        [Fact]
+        public void WritePrivateSetProperty() => Lexico.Parse<GetOnlyPropWithPrivateSet>("5");
+
+        private class ReadonlyField
+        {
+            [Term] public readonly float Value;
+        }
+
+        [Fact]
+        public void WriteReadonlyField() => Lexico.Parse<ReadonlyField>("5");
     }
 }
