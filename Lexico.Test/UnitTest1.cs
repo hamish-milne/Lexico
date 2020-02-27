@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.IO;
 using Xunit;
 
 namespace Lexico.Test
@@ -84,9 +83,12 @@ namespace Lexico.Test
         private class GenericWrapper : GenericSequence<int> { }
 
         [Fact]
-        public void OrderOfSequenceCorrect() => Lexico.Parse<NonGenericSequence>(" 5 ");
+        public void OrderOfSequenceCorrect()
+        {
+            Assert.True(Lexico.TryParse(" 5 ", out NonGenericSequence _, new ConsoleTrace()));
+        }
 
         [Fact]
-        public void OrderOfGenericSequenceCorrect() => Lexico.Parse<GenericWrapper>(" 5 ");
+        public void OrderOfGenericSequenceCorrect() => Lexico.Parse<GenericWrapper>(" 5 ", new ConsoleTrace());
     }
 }
