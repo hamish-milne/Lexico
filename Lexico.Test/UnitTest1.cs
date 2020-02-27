@@ -26,26 +26,44 @@ namespace Lexico.Test
 
         private class GetOnlyProp
         {
-            [field:Term] public float Value { get; }
+            [field:Term] public int Value { get; }
         }
 
         [Fact]
-        public void WriteGetOnlyProperty() => Lexico.Parse<GetOnlyProp>("5");
+        public void CannotWriteGetOnlyProperty() => Assert.NotEqual(5, Lexico.Parse<GetOnlyProp>("5").Value);
 
         private class GetOnlyPropWithPrivateSet
         {
-            [field:Term] public float Value { get; private set; }
+            [field:Term] public int Value { get; private set; }
         }
 
         [Fact]
-        public void WritePrivateSetProperty() => Lexico.Parse<GetOnlyPropWithPrivateSet>("5");
+        public void WritePrivateSetProperty() => Assert.Equal(5, Lexico.Parse<GetOnlyPropWithPrivateSet>("5").Value);
 
         private class ReadonlyField
         {
-            [Term] public readonly float Value;
+            [Term] public readonly int Value;
         }
 
         [Fact]
-        public void WriteReadonlyField() => Lexico.Parse<ReadonlyField>("5");
+        public void CannotWriteReadonlyField() => Assert.NotEqual(5, Lexico.Parse<ReadonlyField>("5").Value);
+
+        private class PrivateField
+        {
+            [Term] private int Value;
+            public int Val => Value;
+        }
+
+        [Fact]
+        public void WritePrivateField() => Assert.Equal(5, Lexico.Parse<PrivateField>("5").Val);
+
+        private class ProtectedField
+        {
+            [Term] protected int Value;
+            public int Val => Value;
+        }
+
+        [Fact]
+        public void WriteProtectedField() => Assert.Equal(5, Lexico.Parse<ProtectedField>("5").Val);
     }
 }
