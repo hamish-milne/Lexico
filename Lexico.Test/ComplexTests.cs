@@ -77,7 +77,7 @@ namespace Lexico.Test
             InlineData("A second 2-6-100-34;", "second", new[]{2, 6, 100, 34}),
             InlineData("B third 432-234-543-53425-", "third", new[]{432, 234, 543, 53425}),
             InlineData("B fourth 2;", "fourth", new[]{2}),
-            InlineData("B fifth some-words-foo;", "fifth", null, "some", "words", "foo"),
+            InlineData("B fifth some-random-lol-words;", "fifth", null, "some", "random", "lol", "words"),
         ]
         public void CombinedTest(string text, string word, int[] numbers, params string[] words)
         {
