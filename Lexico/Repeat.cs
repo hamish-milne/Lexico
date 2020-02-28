@@ -75,27 +75,34 @@ namespace Lexico
                     {IsArray: true} => New(typeof(List<>).MakeGenericType(elementType)),
                     _ => Condition(Equal(context.Result, Constant(null)), New(ListType), context.Result)
                 });
-            context.Append(Call(list, nameof(IList.Clear), Type.EmptyTypes));
+            if (list != null && ListType != typeof(string)) {
+                context.Append(Call(list, nameof(IList.Clear), Type.EmptyTypes));
+            }
             // Make a var to store the result before adding to the list
             var output = context.Result == null ? null : context.Cache(Default(elementType));
             var count = context.Cache(Constant(0));
             void AddToList() {
                 if (list != null) {
-                    context.Append(Call(list, nameof(IList.Add), Type.EmptyTypes, output));
+                    if (ListType == typeof(string)) {
+                        context.Append(Call(list, nameof(StringBuilder.Append), Type.EmptyTypes, output));
+                    } else {
+                        context.Append(Call(list, nameof(IList.Add), Type.EmptyTypes, output));
+                    }
                 }
             }
-
-            // The first element must match
-            context.Child(element, null, output, null, context.Failure);
-            AddToList();
 
             // Begin the loop
             var loop = Label();
             var loopEnd = Label();
+
+            // First element
+            context.Child(element, null, output, null, loopEnd);
+            AddToList();
+
+            context.Append(Label(loop));
             if (output != null) {
                 context.Append(Assign(output, Default(elementType)));
             }
-            context.Append(Label(loop));
             if (Max.HasValue) {
                 context.Append(IfThen(GreaterThanOrEqual(count, Constant(Max.Value)), Goto(loopEnd)));
             }
@@ -114,7 +121,11 @@ namespace Lexico
             if (Min.HasValue) {
                 context.Append(IfThen(LessThan(count, Constant(Min.Value)), Goto(context.Failure)));
             }
-            context.Succeed(list ?? Empty());
+            if (ListType == typeof(string) && list != null) {
+                context.Succeed(Call(list, nameof(StringBuilder.ToString), Type.EmptyTypes));
+            } else {
+                context.Succeed(list ?? Empty());
+            }
         }
 
         public override string ToString() => $"[{element}...]";
