@@ -1,3 +1,4 @@
+using System.Text;
 using System.Reflection;
 using System.Collections;
 using System;
@@ -18,7 +19,7 @@ namespace Lexico
         /// The minimum number of elements to match to succeed
         /// </summary>
         /// <value></value>
-        public int Min { get; set; } = 0;
+        public int Min { get; set; } = 1;
 
         /// <summary>
         /// The maximum number of elements to match (the parser will simply stop when it reaches this amount)
@@ -41,7 +42,11 @@ namespace Lexico
         public RepeatParser(Type listType, IParser? separator, int? min, int? max)
         {
             ListType = listType ?? throw new ArgumentNullException(nameof(listType));
-            elementType = listType.IsArray ? listType.GetElementType() : listType.GetGenericArguments()[0];
+            elementType = listType switch {
+                {} when listType == typeof(string) => typeof(char),
+                {IsArray: true} => listType.GetElementType(),
+                _ => listType.GetGenericArguments()[0]
+            };
             element = ParserCache.GetParser(elementType);
             if (!typeof(IList).IsAssignableFrom(listType)) {
                 addMethod = listType.GetMethod("Add")
@@ -65,9 +70,11 @@ namespace Lexico
         public void Compile(ICompileContext context)
         {
             var list = context.Result == null ? null :
-                context.Cache(ListType.IsArray ? (Expression)New(typeof(List<object>)) : (
-                    Condition(Equal(context.Result, Constant(null)), New(ListType), context.Result)
-                ));
+                context.Cache(ListType switch {
+                    {} when ListType == typeof(string) => New(typeof(StringBuilder)),
+                    {IsArray: true} => New(typeof(List<>).MakeGenericType(elementType)),
+                    _ => Condition(Equal(context.Result, Constant(null)), New(ListType), context.Result)
+                });
             context.Append(Call(list, nameof(IList.Clear), Type.EmptyTypes));
             // Make a var to store the result before adding to the list
             var output = context.Result == null ? null : context.Cache(Default(elementType));

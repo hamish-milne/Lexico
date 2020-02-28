@@ -2,7 +2,7 @@ using System;
 using System.Linq.Expressions;
 using System.Collections.Generic;
 
-namespace Lexico.Regex
+namespace Lexico.RegexImpl
 {
     public abstract class Pattern {}
 
@@ -38,7 +38,7 @@ namespace Lexico.Regex
 
     public class HexChar : SingleChar {
         [Literal("\\x")] Unnamed _;
-        [CharRange("09", "AF", "af", Min = 2, Max = 2)] string hexValue;
+        [CharRange("09", "AF", "af"), Repeat(Min = 2, Max = 2)] string hexValue;
         public override char Value => (char)byte.Parse(hexValue);
     }
 
@@ -50,13 +50,13 @@ namespace Lexico.Regex
 
     public class UnicodeChar : SingleChar {
         [Literal("\\u")] Unnamed _;
-        [CharRange("09", "AF", "af", Min = 4, Max = 4)] string hexValue;
+        [CharRange("09", "AF", "af"), Repeat(Min = 4, Max = 4)] string hexValue;
         public override char Value => (char)ushort.Parse(hexValue);
     }
 
     public class OctalChar : SingleChar {
         [Literal("\\")] Unnamed _;
-        [CharRange("07", Min = 3, Max = 3)] string octalValue;
+        [CharRange("07"), Repeat(Min = 3, Max = 3)] string octalValue;
     }
 
     public class NumericRef : Pattern {
@@ -67,7 +67,7 @@ namespace Lexico.Regex
     public class ExtendedUnicodeChar : SingleChar
     {
         [Literal("\\u")] Unnamed _;
-        [CharRange("09", "AF", "af", Min = 0, Max = Int32.MaxValue)] string hexValue;
+        [CharRange("09", "AF", "af"), Repeat(Min = 0)] string hexValue;
         public override char Value => (char)uint.Parse(hexValue);
     }
 

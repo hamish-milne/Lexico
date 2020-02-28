@@ -13,9 +13,17 @@ namespace Lexico
         public SeparatedByAttribute(Type separator) {
             separatorType = separator ?? throw new ArgumentNullException(nameof(separator));
         }
-        private readonly Type separatorType;
 
-        protected virtual IParser GetSeparator(IConfig config) => ParserCache.GetParser(separatorType);
+        public SeparatedByAttribute(string separator) {
+            separatorString = separator ?? throw new ArgumentNullException(nameof(separator));
+        }
+
+        private readonly Type? separatorType;
+        private readonly string? separatorString;
+
+        protected virtual IParser GetSeparator(IConfig config) => separatorType == null
+            ? new LiteralParser(separatorString!)
+            : ParserCache.GetParser(separatorType);
 
         public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
         {
