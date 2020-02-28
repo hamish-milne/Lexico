@@ -40,7 +40,7 @@ namespace Lexico
     {
         public RepeatParser(Type listType, IParser? separator, int? min, int? max)
         {
-            this.ListType = listType ?? throw new ArgumentNullException(nameof(listType));
+            ListType = listType ?? throw new ArgumentNullException(nameof(listType));
             elementType = listType.IsArray ? listType.GetElementType() : listType.GetGenericArguments()[0];
             element = ParserCache.GetParser(elementType);
             if (!typeof(IList).IsAssignableFrom(listType)) {
@@ -68,7 +68,7 @@ namespace Lexico
                 context.Cache(ListType.IsArray ? (Expression)New(typeof(List<object>)) : (
                     Condition(Equal(context.Result, Constant(null)), New(ListType), context.Result)
                 ));
-            
+            context.Append(Call(list, nameof(IList.Clear), Type.EmptyTypes));
             // Make a var to store the result before adding to the list
             var output = context.Result == null ? null : context.Cache(Default(elementType));
             var count = context.Cache(Constant(0));

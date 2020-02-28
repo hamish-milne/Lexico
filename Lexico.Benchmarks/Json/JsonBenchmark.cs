@@ -69,6 +69,9 @@ namespace Lexico.Benchmarks
             if (result == null) throw new Exception("Parsing failed");
         }
 
+        // TODO: UTF8Json
+        // TODO: JIL
+
         [Benchmark]
         public void NewtonsoftLINQ()
         {
