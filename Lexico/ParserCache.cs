@@ -2,6 +2,7 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Reflection;
 using System;
+using System.Runtime.CompilerServices;
 using static System.AttributeTargets;
 
 namespace Lexico
@@ -47,18 +48,14 @@ namespace Lexico
             Inner = inner ?? throw new ArgumentNullException(nameof(inner));
         }
 
-        public bool Matches(ref IContext context, ref object? value)
+        public Type OutputType => Inner!.OutputType;
+
+        public void Compile(ICompileContext context)
         {
-            if (Inner == null) {
-                throw new InvalidOperationException("Not filled yet");
-            }
-            return Inner.MatchChild(null, ref context, ref value);
+            context.Recursive(Inner!);
         }
 
-        public override string ToString() => Inner?.ToString() ?? "UNSET";
-
-        public override int GetHashCode() => Inner?.GetHashCode() ?? 0;
-        public override bool Equals(object obj) => object.ReferenceEquals(this, obj) || object.ReferenceEquals(Inner, obj);
+        public override string ToString() => "Unary";
     }
 
     public static class ReflectionExtensions

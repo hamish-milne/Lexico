@@ -1,6 +1,8 @@
+using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using System;
 using System.Reflection;
+using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
@@ -28,24 +30,28 @@ namespace Lexico
 
         private readonly bool multiline;
 
-        public bool Matches(ref IContext context, ref object? value)
-        {
-            int idx = 0;
-            var c = context.Peek(idx);
-            if (MatchChar(c)) {
-                do {
-                    idx++;
-                    c = context.Peek(idx);
-                } while (MatchChar(c));
-                context = context.Advance(idx);
-                return true;
-            } else {
-                return false;
-            }
-        }
+        public Type OutputType => typeof(void);
 
-        private bool MatchChar(char? c)
-            => c.HasValue && (multiline || c != '\n') && Char.IsWhiteSpace(c.Value);
+        public void Compile(ICompileContext context)
+        {
+            // TODO: Opt-in for fast whitespace
+            Expression test = LessThanOrEqual(context.Peek(0), Constant(' '));
+            // var isWhiteSpace = new Func<char, bool>(Char.IsWhiteSpace).Method;
+            // Expression test = Call(isWhiteSpace, context.Peek(0));
+            if (!multiline) {
+                test = And(NotEqual(context.Peek(0), Constant('\n')), test);
+            }
+            context.Append(IfThen(GreaterThanOrEqual(context.Position, context.Length), Goto(context.Failure)));
+            context.Append(IfThen(Not(test), Goto(context.Failure)));
+            var loop = Label();
+            var loopEnd = Label();
+            context.Append(Label(loop));
+            context.Advance(1);
+            context.Append(IfThen(GreaterThanOrEqual(context.Position, context.Length), Goto(loopEnd)));
+            context.Append(IfThen(test, Goto(loop)));
+            context.Append(Label(loopEnd));
+            context.Succeed();
+        }
 
         public override string ToString() => "Whitespace";
     }

@@ -53,7 +53,7 @@ namespace Lexico
     public abstract class TextTrace : ITrace
     {
         int currentIndent = 0;
-        private int IndentCount => Math.Max(0, SpacesPerIndent * currentIndent - 2); // -2 for leading outliner characters
+        private int IndentCount => Math.Max(0, SpacesPerIndent * currentIndent - (Verbose ? 0 : 2)); // -2 for leading outliner characters
 
         (IParser parser, string? name)? lastPush;
         readonly Stack<string> parserKindStack = new Stack<string>();
@@ -65,9 +65,7 @@ namespace Lexico
 
         public void Pop(IParser parser, bool success, object? value, StringSegment text)
         {
-            var sb = new StringBuilder()
-                     .Append(lastPush.HasValue ? "|" : "<")
-                     .Append(success ? "\u2714 " : "\u2717 ");
+            var sb = new StringBuilder();
 
             switch (Verbose)
             {
@@ -87,10 +85,15 @@ namespace Lexico
                     if (success) {
                         sb.Append("\u2714").Append(" = ").Append(value ?? "<null>");
                     } else {
+                        if (text.String != null && text.Length == 0 && text.Start < text.String.Length) {
+                            text = new StringSegment(text.String, text.Start, text.Length + 1);
+                        }
                         sb.Append("\u2717 (got `").Append(text).Append("`)");
                     }
                     break;
                 case false:
+                    sb.Append(lastPush.HasValue ? "|" : "<")
+                      .Append(success ? "\u2714 " : "\u2717 ");
                     if (lastPush.HasValue) {
                         sb.Append(' ', IndentCount);
                         if (lastPush.Value.parser != null) {
@@ -138,7 +141,11 @@ namespace Lexico
 
         private void WritePush(IParser parser, string? name)
         {
-            var sb = new StringBuilder().Append(">  ").Append(' ', IndentCount);
+            var sb = new StringBuilder();
+            if (!Verbose) {
+                sb.Append(">  ");
+            }
+            sb.Append(' ', IndentCount);
 
             switch (Verbose)
             {

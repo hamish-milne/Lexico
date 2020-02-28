@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using static System.AttributeTargets;
+using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
@@ -29,9 +30,15 @@ namespace Lexico
     {
         public static EOFParser Instance { get; } = new EOFParser();
         private EOFParser() {}
-        public bool Matches(ref IContext context, ref object? value)
-            => !context.Peek(0).HasValue;
 
         public override string ToString() => "EOF";
+
+        public Type OutputType => typeof(void);
+
+        public void Compile(ICompileContext context)
+        {
+            context.Append(IfThen(LessThan(context.Position, context.Length), Goto(context.Failure)));
+            context.Succeed(Empty());
+        }
     }
 }

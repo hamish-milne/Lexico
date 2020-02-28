@@ -79,12 +79,18 @@ namespace Lexico
         private readonly IParser inner;
         private readonly IParser? prefix, suffix;
 
-        public bool Matches(ref IContext context, ref object? value)
+        public Type OutputType => inner.OutputType;
+
+        public void Compile(ICompileContext context)
         {
-            object? tmp = null;
-            return prefix.MatchChild("(Prefix)", ref context, ref tmp)
-                && inner.MatchChild(null, ref context, ref value)
-                && suffix.MatchChild("(Suffix)", ref context, ref tmp);
+            if (prefix != null) {
+                context.Child(prefix, "(Prefix)", null, null, context.Failure);
+            }
+            context.Child(inner, null, context.Result, null, context.Failure);
+            if (suffix != null) {
+                context.Child(suffix, "(Suffix)", null, null, context.Failure);
+            }
+            context.Succeed();
         }
 
         public override string ToString() => $"({prefix} {inner} {suffix})";

@@ -12,10 +12,10 @@ namespace Lexico
     /// </summary>
     public class AlternativeAttribute : TermAttribute
     {
-        // ReSharper disable once UnusedMember.Global
-        public AlternativeAttribute() { Options = null; } // Required as Activator.CreateInstance cannot use params constructors to create a parameterless instance
+        // ReSharper disable once UnusedMember.Global - Required as Activator.CreateInstance cannot use params constructors to create a parameterless instance
+        public AlternativeAttribute() { Options = null; }
         public AlternativeAttribute(params Type[] options) { Options = options; }
-        public Type[] Options { get; }
+        public Type[]? Options { get; }
         public override int Priority => 10;
         public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config) =>
             new AlternativeParser(member.GetMemberType(), Options);
@@ -23,7 +23,7 @@ namespace Lexico
         public override bool AddDefault(MemberInfo member)
             => member is Type t && (t.IsInterface || t.IsAbstract);
     }
-    
+
     public class IndirectAlternativeAttribute : TerminalAttribute
     {
         public IndirectAlternativeAttribute(string property) {
@@ -43,12 +43,11 @@ namespace Lexico
 
     internal class AlternativeParser : IParser
     {
-        public AlternativeParser(Type baseType, IEnumerable<Type> optionTypes = null)
+        public AlternativeParser(Type baseType, IEnumerable<Type>? optionTypes = null)
         {
-            this.baseType = baseType;
+            OutputType = baseType;
             if (optionTypes != null)
             {
-                optionTypes = optionTypes as Type[] ?? optionTypes.ToArray();
                 foreach (var type in optionTypes)
                 {
                     if (!baseType.IsAssignableFrom(type)) throw new ArgumentException($"Option '{type}' is not assignable to base type '{baseType}'");
@@ -66,19 +65,21 @@ namespace Lexico
             }
         }
 
-        private readonly Type baseType;
         private readonly IParser[] options;
-        public bool Matches(ref IContext context, ref object? value)
+
+        public Type OutputType { get; }
+
+        public void Compile(ICompileContext context)
         {
             foreach (var option in options)
             {
-                if (option.MatchChild(null, ref context, ref value)) {
-                    return true;
-                }
+                var savePoint = context.Save();
+                context.Child(option, null, context.Result, context.Success, savePoint);
+                context.Restore(savePoint);
             }
-            return false;
+            context.Fail();
         }
 
-        public override string ToString() => $"Any {baseType.Name}";
+        public override string ToString() => $"Any {OutputType.Name}";
     }
 }

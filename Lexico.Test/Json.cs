@@ -16,13 +16,6 @@ namespace Lexico.Json
     {
     }
 
-    public class JsonNumber : JsonValue
-    {
-        [Term] float value;
-
-        public override string ToString() => value.ToString();
-    }
-
     public class JsonString : JsonValue
     {
         [Literal("\"")] Unnamed _;
@@ -97,5 +90,12 @@ namespace Lexico.Json
         [Literal("null")] Unnamed _;
 
         public override string ToString() => "null";
+    }
+
+    public class JsonNumber : JsonValue
+    {
+        [Term] float value;
+
+        public override string ToString() => value.ToString();
     }
 }
