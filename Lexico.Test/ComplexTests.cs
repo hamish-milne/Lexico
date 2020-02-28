@@ -14,7 +14,7 @@ namespace Lexico.Test
         [Fact]
         public void CalculatorTest()
         {
-            var expr = Lexico.Parse<Calculator.Expression>("5-(3/2)^(2+1)", new ConsoleTrace{Verbose = true});
+            var expr = Lexico.Parse<Calculator.Expression>("5-(3/2)^(2+1)", new XunitTrace(_outputHelper));
             Assert.Equal(1.625f, expr.Value);
         }
 
@@ -32,7 +32,7 @@ namespace Lexico.Test
 
         private class Word
         {
-            [Regex(@"[\p{L}]*")] public string Value { get; set; }
+            [Regex(@"[\p{L}]+")] public string Value { get; set; }
         }
 
         private class Dash
@@ -75,14 +75,17 @@ namespace Lexico.Test
             InlineData("A second 2-6-100-34;", "second", new[]{2, 6, 100, 34}),
             InlineData("B third 432-234-543-53425-", "third", new[]{432, 234, 543, 53425}),
             InlineData("B fourth 2;", "fourth", new[]{2}),
-            InlineData("B fifth some-words;", "fifth", new[]{2}, "some", "words"),
+            InlineData("B fifth some-words;", "fifth", null, "some", "words"),
         ]
         public void CombinedTest(string text, string word, int[] numbers, params string[] words)
         {
             Assert.True(Lexico.TryParse(text, out Item result, new XunitTrace(_outputHelper)), "Parsing failed");
             Assert.Equal(word, result.Word.Value);
             Assert.Equal(numbers, result.Numbers);
-            Assert.Equal(words, result.Words.Select(w => w.Value).ToArray());
+            if (words.Length == 0) {
+                words = null;
+            }
+            Assert.Equal(words, result.Words?.Select(w => w.Value).ToArray());
         }
     }
 }
