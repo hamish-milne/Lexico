@@ -46,7 +46,7 @@ namespace Lexico
         private readonly IParser child;
 
         public Type OutputType => child.OutputType; // TODO: Nullable<T> here?
-        
+
         public void Compile(ICompileContext context)
         {
             var savePoint = context.Save();

@@ -31,6 +31,7 @@ namespace Lexico
 
         public void Compile(ICompileContext context)
         {
+            context.Append(IfThen(GreaterThanOrEqual(context.Position, context.Length), Goto(context.Failure)));
             var success = Label();
             foreach (var (start, end) in ranges) {
                 context.Append(IfThen(And(
@@ -40,6 +41,7 @@ namespace Lexico
             }
             context.Fail();
             context.Append(Label(success));
+            context.Advance(1);
             context.Succeed(context.Peek(0));
         }
     }
