@@ -15,20 +15,28 @@ namespace Lexico.RegexImpl
     public class Regex
     {
         [Optional, Literal("^")] string beginAnchor;
-        [Term] Pattern pattern;
+        [Term] Alternation pattern;
         [Optional, Literal("$")] string endAnchor;
+
+        public IParser Create() => endAnchor == null
+            ? pattern.Create()
+            : new SequenceParser(new []{pattern.Create(), EOFParser.Instance});
     }
 
     public class Alternation
     {
         [SeparatedBy("|")]
         public List<Sequence> Items { get; } = new List<Sequence>();
+
+        public IParser Create() => Items.Count == 1 ? Items[0].Create() : new AlternativeParser(Items.Select(s => s.Create()));
     }
 
     public class Sequence
     {
         [Term]
         public List<Pattern> Items { get; } = new List<Pattern>();
+
+        public IParser Create() => Items.Count == 1 ? Items[0].Create() : new SequenceParser(Items.Select(s => s.Create()));
     }
 
     public class Group : Pattern
@@ -37,6 +45,8 @@ namespace Lexico.RegexImpl
         [Term] GroupModifier modifier;
         [Term] Alternation inner;
         [Literal(")")] Unnamed __;
+
+        public override IParser Create() => inner.Create();
     }
 
     public abstract class GroupModifier {}
@@ -57,12 +67,12 @@ namespace Lexico.RegexImpl
     }
 
     public interface ISetItem {
-        (char start, char end, bool invert)[] Ranges { get; }
+        CharIntervalSet Ranges { get; }
     }
 
     public abstract class SingleChar : Pattern, ISetItem {
         public abstract char Value { get; }
-        public (char start, char end, bool invert)[] Ranges => new []{(Value, Value, false)};
+        public CharIntervalSet Ranges => new CharIntervalSet().Include(Value, Value);
 
         public override IParser Create()
         {
@@ -114,21 +124,45 @@ namespace Lexico.RegexImpl
         [Literal("-")] Unnamed _;
         [Term] SingleChar end;
 
-        public (char start, char end, bool invert)[] Ranges => new []{(start.Value, end.Value, false)};
+        public CharIntervalSet Ranges => new CharIntervalSet().Include(start.Value, end.Value);
     }
+
+    public class WordBoundary : Pattern
+    {
+        [Literal("\\b")] Unnamed _;
+
+        public override IParser Create()
+        {
+            throw new NotImplementedException();
+        }
+    }
+    
 
     public class CharClass : Pattern, ISetItem
     {
         [Literal("\\")] Unnamed _;
-        [CharSet("wWdDsSbB")] char id;
+        [CharSet("wWdDsS")] char id;
 
-        public (char start, char end, bool invert)[] Ranges => char.ToUpper(id) switch {
-            'W' => new []{('a','z'), ('A','Z'), ('0','9'), ('_','_')}, invert: char.IsUpper(id)),
-            'D' => new []{('0','9')}, invert: char.IsUpper(id)),
-            'S' => new []{('\t','\r'), (' ',' ')}, invert: char.IsUpper(id)),
-            'B' => throw new NotSupportedException(),
-            _ => throw new InvalidOperationException()
-        };
+        public CharIntervalSet Ranges
+        {
+            get {
+                var set = char.ToLowerInvariant(id) switch {
+                    'w' => new CharIntervalSet().Include('a','z').Include('A','Z').Include('0','9').Include('_','_'),
+                    'd' =>  new CharIntervalSet().Include('0','9'),
+                    's' => new CharIntervalSet().Include('\t','\r').Include(' ',' '),
+                    _ => throw new InvalidOperationException()
+                };
+                if (char.IsUpper(id)) {
+                    set.Invert();
+                }
+                return set;
+            }
+        }
+
+        public override IParser Create()
+        {
+            throw new NotImplementedException();
+        }
     }
 
     public class SimpleEscape : SingleChar
@@ -147,13 +181,21 @@ namespace Lexico.RegexImpl
         };
     }
 
+    public class Optional : Pattern
+    {
+        [Term] Pattern inner;
+        [Literal("?")] Unnamed _;
+
+        public override IParser Create() => new OptionalParser(inner.Create());
+    }
+
     public class Repeat : Pattern
     {
         [Term] Pattern inner;
-        [CharSet("*+?")] char repeater;
-        [Optional, Literal("?")] string lazy;
+        [CharSet("*+")] char repeater;
+        [Optional, Literal("?")] string lazy; // TODO: Support 'lazy' qualifiers
 
-        public override IParser Create() => new RepeatParser(inner.Create(), null, min, max);
+        public override IParser Create() => new RepeatParser(inner.Create(), null, repeater == '+' ? 1 : 0);
     }
 
     public class Quantified : Pattern
@@ -182,7 +224,13 @@ namespace Lexico.RegexImpl
         [Term] List<SetItem> items;
         [Literal("]")] Unnamed __;
 
-        public override IParser Create() => new CharRange(items.Select(o => o.item.Range).ToArray(), invert: invert != null);
+        public override IParser Create() {
+            var set = new CharIntervalSet(items.Select(i => i.item.Ranges));
+            if (invert != null) {
+                set.Invert();
+            }
+            return new CharSet(set);
+        }
     }
 
     public class Any : Pattern

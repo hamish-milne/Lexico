@@ -9,10 +9,31 @@ namespace Lexico
     public class CharSetAttribute : TermAttribute
     {
         public CharSetAttribute(string set) {
-            this.set = set ?? throw new ArgumentNullException(nameof(set));
+            this.set = new CharIntervalSet();
+            foreach (var c in set) {
+                this.set.Include(c, c);
+            }
         }
 
-        private readonly string set;
+        private readonly CharIntervalSet set;
+
+        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config) => new CharSet(set);
+    }
+
+    public class CharRangeAttribute : TermAttribute
+    {
+        public CharRangeAttribute(params string[] ranges) {
+            var r = ranges.Select(s => {
+                if (s.Length != 2) throw new ArgumentException($"Argument `{s}` in CharRange is not 2 characters");
+                return (s[0], s[1]);
+            });
+            set = new CharIntervalSet();
+            foreach (var (begin, end) in r) {
+                set.Include(begin, end);
+            }
+        }
+
+        private readonly CharIntervalSet set;
 
         public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config) => new CharSet(set);
     }
@@ -21,75 +42,85 @@ namespace Lexico
     {
         private readonly List<(char, char)> intervals = new List<(char, char)>();
 
-        public void All() {
+        public IEnumerable<(char, char)> Intervals => intervals;
+
+        public CharIntervalSet() {}
+
+        public CharIntervalSet(IEnumerable<CharIntervalSet> others)
+        {
+            foreach (var o in others) {
+                foreach (var (begin, end) in o.intervals) {
+                    Include(begin, end);
+                }
+            }
+        }
+
+        public CharIntervalSet All() {
             intervals.Clear();
             intervals.Add(('\u0000', '\uffff'));
+            return this;
         }
 
         public void Clear() {
             intervals.Clear();
         }
 
-        public void Include(char begin, char end) {
+        private (bool, int) Find(char c) {
             int i;
-            bool bc = false;
+            bool contains = false;
             for (i = 0; i < intervals.Count; i++) {
-                if (begin < intervals[i].Item1) {
-                    bc = false;
+                if (c < intervals[i].Item1) {
+                    contains = false;
                     break;
                 }
-                if (begin >= intervals[i].Item1 && begin <= intervals[i].Item2) {
-                    bc = true;
-                    break;
-                }
-            }
-            int j;
-            bool ec = false;
-            for (j = 0; j < intervals.Count; j++) {
-                if (end < intervals[j].Item1) {
-                    ec = false;
-                    break;
-                }
-                if (end >= intervals[j].Item1 && end <= intervals[j].Item2) {
-                    ec = true;
+                if (c >= intervals[i].Item1 && c <= intervals[i].Item2) {
+                    contains = true;
                     break;
                 }
             }
-            switch (bc, ec) {
-            case (true, true):
-                // Both are within existing intervals; remove any gaps in between
-                var newEnd = intervals[j].Item2;
-                var newStart = intervals[i].Item1;
-                for (int p = i+1; p <= j; p++) {
-                    intervals.RemoveAt(p);
-                }
-                intervals[i] = (newStart, newEnd);
-                break;
-            case (false, false):
-                // Not contained - remove any obsolete intervals in the middle:
-                for (int p = i; p < j; p++) {
-                    intervals.RemoveAt(p);
-                }
-                // Add a new interval covering everything
-                intervals.Insert(i, (begin, end));
-                break;
-            case (true, false):
-                for (int p = i+1; p <= j; p++) {
-                    intervals.RemoveAt(p);
-                }
-                intervals[i] = (intervals[i].Item1, end);
-                break;
-            case (false, true):
-                var newEnd1 = intervals[j].Item2;
-                for (int p = i+1; p <= j; p++) {
-                    intervals.RemoveAt(p);
-                }
-                intervals[i] = (begin, newEnd1);
-                break;
-            }
+            return (contains, i);
         }
 
-        public void Invert()
+        public CharIntervalSet Include(char begin, char end) {
+            var (bc, i) = Find(begin);
+            var (ec, j) = Find(end);
+
+            var newEnd = ec ? intervals[j].Item2 : end;
+            var newStart = bc ? intervals[i].Item1 : begin;
+            // Remove redundant intervals between the added endpoints
+            var s = i + (bc || ec ? 1 : 0);
+            for (int p = s; p < j; p++) {
+                intervals.RemoveAt(s);
+            }
+            if (!bc && !ec) {
+                // If no endpoint was contained, add a brand new interval in the right place
+                intervals.Insert(i, (begin, end));
+            } else {
+                // Otherwise, extend an existing interval
+                intervals[i] = (newStart, newEnd);
+            }
+            return this;
+        }
+
+        public CharIntervalSet Exclude(char begin, char end)
+        {
+            var (bc, i) = Find(begin);
+            var (ec, j) = Find(end);
+
+            if (bc) {
+                intervals[i] = (intervals[i].Item1, begin);
+            }
+            if (ec) {
+                intervals[j] = (end, intervals[j].Item2);
+            }
+            var s = i+(bc || ec ? 1 : 0);
+            for (int p = s; p < j; p++) {
+                intervals.RemoveAt(s);
+            }
+            return this;
+        }
+
+        public CharIntervalSet Invert()
         {
             var newSet = new List<(char, char)>();
             var pos = '\0';
@@ -99,33 +130,38 @@ namespace Lexico
                 }
                 pos = (char)(end+1);
             }
-        }
-
-        public void Exclude(char begin, char end) {
-
+            if (pos <= '\uffff') {
+                newSet.Add((pos, '\uffff'));
+            }
+            intervals.Clear();
+            intervals.AddRange(newSet);
+            return this;
         }
     }
 
     public class CharSet : IParser
     {
-        public CharSet(string set) {
-            set = set ?? throw new ArgumentNullException(nameof(set));
-            chars = set.Distinct().ToArray();
-            if (chars.Length == 0) {
-                throw new ArgumentException("Char set is empty");
-            }
+        public CharSet(CharIntervalSet set) {
+            ranges = set.Intervals.ToArray();
         }
 
-        public Type OutputType => typeof(char);
+        private readonly (char start, char end)[] ranges;
 
-        private readonly char[] chars;
+        public Type OutputType => typeof(char);
 
         public void Compile(ICompileContext context)
         {
             context.Append(IfThen(GreaterThanOrEqual(context.Position, context.Length), Goto(context.Failure)));
             var success = Label();
-            foreach (var c in chars) {
-                context.Append(IfThen(Equal(context.Peek(0), Constant(c)), Goto(success)));
+            foreach (var (start, end) in ranges) {
+                if (start == end) {
+                    context.Append(IfThen(Equal(context.Peek(0), Constant(start)), Goto(success)));
+                } else {
+                    context.Append(IfThen(And(
+                        GreaterThanOrEqual(context.Peek(0), Constant(start)),
+                        LessThanOrEqual(context.Peek(0), Constant(end))
+                    ), Goto(success)));
+                }
             }
             context.Fail();
             context.Append(Label(success));
