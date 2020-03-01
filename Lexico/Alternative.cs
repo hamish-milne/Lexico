@@ -65,6 +65,12 @@ namespace Lexico
             }
         }
 
+        public AlternativeParser(Type outputType, IEnumerable<IParser> options)
+        {
+            OutputType = outputType;
+            this.options = options.ToArray();
+        }
+
         private readonly IParser[] options;
 
         public Type OutputType { get; }

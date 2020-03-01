@@ -39,20 +39,21 @@ namespace Lexico
 
     internal class UnaryParser : IParser
     {
-        public IParser? Inner { get; private set; }
+        private IParser? inner;
+        public IParser Inner => inner ?? throw new InvalidOperationException("Circular parser dependency");
 
         public void Set(IParser inner) {
-            if (Inner != null) {
+            if (this.inner != null) {
                 throw new InvalidOperationException("Already set");
             }
-            Inner = inner ?? throw new ArgumentNullException(nameof(inner));
+            this.inner = inner ?? throw new ArgumentNullException(nameof(inner));
         }
 
-        public Type OutputType => Inner!.OutputType;
+        public Type OutputType => Inner.OutputType;
 
         public void Compile(ICompileContext context)
         {
-            context.Recursive(Inner!);
+            context.Recursive(Inner);
         }
 
         public override string ToString() => "Unary";

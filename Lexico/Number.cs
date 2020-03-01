@@ -89,28 +89,22 @@ namespace Lexico
             if (Has(AllowTrailingWhite)) {
                 pattern.Append(@"\s*");
             }
-            regex = new Regex(pattern.ToString(), RegexOptions.Compiled);
+            regex = RegexImpl.Regex.Parse(pattern.ToString());
             this.styles = styles;
         }
 
         private readonly NumberStyles styles;
         private readonly MethodInfo parseMethod;
-        private readonly Regex regex;
+        private readonly IParser regex;
 
         public Type OutputType => parseMethod.DeclaringType;
 
         public void Compile(ICompileContext context)
         {
-            var match = context.Cache(Call(
-                Constant(regex),
-                nameof(Regex.Match), Type.EmptyTypes,
-                context.String,
-                context.Position,
-                Subtract(context.Length, context.Position)
-            ));
-            context.Append(IfThen(Not(PropertyOrField(match, nameof(Match.Success))), Goto(context.Failure)));
-            context.Append(AddAssign(context.Position, PropertyOrField(match, nameof(Match.Length))));
-            context.Succeed(Call(parseMethod, PropertyOrField(match, nameof(Match.Value)), Constant(styles)));
+            var match = context.Cache(Default(typeof(string)));
+            context.Child(regex, null, match, null, context.Failure);
+            context.Append(AddAssign(context.Position, PropertyOrField(match, nameof(string.Length))));
+            context.Succeed(Call(parseMethod, match, Constant(styles)));
         }
 
         public override string ToString() => $"Number ({OutputType.Name})";

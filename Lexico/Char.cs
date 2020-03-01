@@ -6,6 +6,8 @@ namespace Lexico
 {
     public class CharAttribute : TermAttribute
     {
+        public override int Priority => 1;
+
         public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config) => CharParser.Instance;
 
         public override bool AddDefault(MemberInfo member) => member == typeof(char);
@@ -23,7 +25,7 @@ namespace Lexico
         {
             context.Append(IfThen(GreaterThanOrEqual(context.Position, context.Length), Goto(context.Failure)));
             context.Advance(1);
-            context.Succeed(context.Peek(0));
+            context.Succeed(context.Peek(-1));
         }
     }
 }

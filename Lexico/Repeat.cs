@@ -41,49 +41,56 @@ namespace Lexico
     {
         public RepeatParser(Type listType, IParser? separator, int? min, int? max)
         {
-            ListType = listType ?? throw new ArgumentNullException(nameof(listType));
-            elementType = listType switch {
+            OutputType = listType ?? throw new ArgumentNullException(nameof(listType));
+            var elementType = listType switch {
                 {} when listType == typeof(string) => typeof(char),
                 {IsArray: true} => listType.GetElementType(),
                 _ => listType.GetGenericArguments()[0]
             };
-            element = ParserCache.GetParser(elementType);
-            if (!typeof(IList).IsAssignableFrom(listType)) {
-                addMethod = listType.GetMethod("Add")
-                    ?? throw new ArgumentException($"{listType} does not implement IList and has no Add method");
+            Element = ParserCache.GetParser(elementType);
+            if (listType != typeof(string)
+                && !typeof(IList).IsAssignableFrom(listType)
+                && listType.GetMethod("Add") == null) {
+                throw new ArgumentException($"{listType} does not implement IList and has no Add method");
             }
             this.separator = separator;
             Min = min;
             Max = max;
         }
 
-        private readonly Type elementType;
-        public Type ListType { get; }
+        public RepeatParser(Type outputType, IParser element, IParser? separator, int? min, int? max)
+        {
+            OutputType = outputType ?? throw new ArgumentNullException(nameof(outputType));
+            Element = element;
+            this.separator = separator;
+            Min = min;
+            Max = max;
+        }
+
         public int? Min { get; }
         public int? Max { get; }
-        private readonly IParser element;
-        private readonly MethodInfo? addMethod;
+        public IParser Element { get; }
         private readonly IParser? separator;
 
-        public Type OutputType => ListType;
+        public Type OutputType { get; }
 
         public void Compile(ICompileContext context)
         {
             var list = context.Result == null ? null :
-                context.Cache(ListType switch {
-                    {} when ListType == typeof(string) => New(typeof(StringBuilder)),
-                    {IsArray: true} => New(typeof(List<>).MakeGenericType(elementType)),
-                    _ => Condition(Equal(context.Result, Constant(null)), New(ListType), context.Result)
+                context.Cache(OutputType switch {
+                    {} when OutputType == typeof(string) => New(typeof(StringBuilder)),
+                    {IsArray: true} => New(typeof(List<>).MakeGenericType(Element.OutputType)),
+                    _ => Condition(Equal(context.Result, Constant(null)), New(OutputType), context.Result)
                 });
-            if (list != null && ListType != typeof(string)) {
+            if (list != null && OutputType != typeof(string)) {
                 context.Append(Call(list, nameof(IList.Clear), Type.EmptyTypes));
             }
             // Make a var to store the result before adding to the list
-            var output = context.Result == null ? null : context.Cache(Default(elementType));
+            var output = context.Result == null ? null : context.Cache(Default(Element.OutputType));
             var count = context.Cache(Constant(0));
             void AddToList() {
                 if (list != null) {
-                    if (ListType == typeof(string)) {
+                    if (OutputType == typeof(string)) {
                         context.Append(Call(list, nameof(StringBuilder.Append), Type.EmptyTypes, output));
                     } else {
                         context.Append(Call(list, nameof(IList.Add), Type.EmptyTypes, output));
@@ -96,12 +103,12 @@ namespace Lexico
             var loopEnd = Label();
 
             // First element
-            context.Child(element, null, output, null, loopEnd);
+            context.Child(Element, null, output, null, loopEnd);
             AddToList();
 
             context.Append(Label(loop));
             if (output != null) {
-                context.Append(Assign(output, Default(elementType)));
+                context.Append(Assign(output, Default(Element.OutputType)));
             }
             if (Max.HasValue) {
                 context.Append(IfThen(GreaterThanOrEqual(count, Constant(Max.Value)), Goto(loopEnd)));
@@ -111,7 +118,7 @@ namespace Lexico
             if (separator != null) {
                 context.Child(separator, "(Separator)", null, null, loopFail);
             }
-            context.Child(element, null, output, null, loopFail);
+            context.Child(Element, null, output, null, loopFail);
             AddToList();
             context.Append(Goto(loop));
             context.Restore(loopFail);
@@ -121,13 +128,13 @@ namespace Lexico
             if (Min.HasValue) {
                 context.Append(IfThen(LessThan(count, Constant(Min.Value)), Goto(context.Failure)));
             }
-            if (ListType == typeof(string) && list != null) {
+            if (OutputType == typeof(string) && list != null) {
                 context.Succeed(Call(list, nameof(StringBuilder.ToString), Type.EmptyTypes));
             } else {
                 context.Succeed(list ?? Empty());
             }
         }
 
-        public override string ToString() => $"[{element}...]";
+        public override string ToString() => $"[{Element}...]";
     }
 }

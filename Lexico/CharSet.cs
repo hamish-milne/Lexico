@@ -166,7 +166,7 @@ namespace Lexico
             context.Fail();
             context.Append(Label(success));
             context.Advance(1);
-            context.Succeed(context.Peek(0));
+            context.Succeed(context.Peek(-1));
         }
     }
 }
