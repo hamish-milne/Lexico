@@ -14,13 +14,13 @@ namespace Lexico
     public class OptionalAttribute : TermAttribute
     {
         public override int Priority => 100;
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
         {
             IParser c;
             if (member is Type t && t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>)) {
-                c = ParserCache.GetParser(t.GetGenericArguments()[0]);
+                c = child(t.GetGenericArguments()[0]);
             } else {
-                c = child();
+                c = child(null);
             }
             if (c is OptionalParser o) {
                 return o;

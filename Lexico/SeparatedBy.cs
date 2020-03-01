@@ -25,9 +25,9 @@ namespace Lexico
             ? new LiteralParser(separatorString!)
             : ParserCache.GetParser(separatorType);
 
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
         {
-            var c = child();
+            var c = child(null);
             var sep = GetSeparator(config);
             return c switch {
                 RepeatParser r => new RepeatParser(r.OutputType, r.Element, sep, r.Min, r.Max),

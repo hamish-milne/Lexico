@@ -10,7 +10,7 @@ namespace Lexico
     /// </summary>
     public class EOLAttribute : TermAttribute
     {
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
             => EOLParser.Instance;
     }
 

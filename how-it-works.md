@@ -29,7 +29,7 @@ To generate Parsers, Lexico uses the same attribute instances used to annotate t
 public interface IParserGenerator
 {
     int Priority { get; }
-    IParser Create(MemberInfo member, Func<IParser> child, IConfig config);
+    IParser Create(MemberInfo member, ChildParser child, IConfig config);
     bool AddDefault(MemberInfo member);
 }
 ```

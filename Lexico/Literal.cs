@@ -15,7 +15,7 @@ namespace Lexico
         public override int Priority => 30;
         public abstract IParser Create(MemberInfo member, IConfig config);
 
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
         {
             return Create(member, config);
         }

@@ -14,18 +14,37 @@ namespace Lexico.RegexImpl
         public abstract IParser Create();
     }
 
-    [CompileFlags(CompileFlags.CheckImmediateLeftRecursion)]
+    [CompileFlags(CompileFlags.CheckImmediateLeftRecursion | CompileFlags.Memoizing)]
     public class Regex
     {
         [Optional, Literal("^")] string beginAnchor;
         [Term] Alternation pattern;
         [Optional, Literal("$")] string endAnchor;
 
-        public IParser Create() => endAnchor == null
+        public IParser Create() => new SubstringParser(endAnchor == null
             ? pattern.Create()
-            : new ConcatParser(pattern.Create(), EOFParser.Instance);
+            : new ConcatParser(pattern.Create(), EOFParser.Instance));
 
         public static IParser Parse(string pattern) => Lexico.Parse<Regex>(pattern, new ConsoleTrace{Verbose = true}).Create();
+    }
+
+    public class SubstringParser : IParser
+    {
+        public SubstringParser(IParser inner)
+        {
+            this.inner = inner;
+        }
+
+        private readonly IParser inner;
+
+        public Type OutputType => typeof(string);
+
+        public void Compile(ICompileContext context)
+        {
+            var start = context.Cache(context.Position);
+            context.Child(inner, null, null, null, context.Failure);
+            context.Succeed(Call(context.String, nameof(string.Substring), Type.EmptyTypes, start, Subtract(context.Position, start)));
+        }
     }
 
     public class ConcatParser : IParser
@@ -48,11 +67,11 @@ namespace Lexico.RegexImpl
             {
                 Expression? output = null;
                 if (sb != null) {
-                    output = context.Cache(c.OutputType == typeof(char) ? Constant('\0') : Constant(default(string?)));
+                    output = context.Cache(Default(c.OutputType == typeof(char) ? typeof(char?) : typeof(string)));
                 }
                 context.Child(c, null, output, null, context.Failure);
                 if (sb != null) {
-                    context.Append(Call(sb, nameof(StringBuilder.Append), Type.EmptyTypes, output));
+                    context.Append(Call(sb, nameof(StringBuilder.Append), Type.EmptyTypes, Convert(output, typeof(object))));
                 }
             }
             if (sb != null) {
@@ -61,6 +80,8 @@ namespace Lexico.RegexImpl
                 context.Succeed();
             }
         }
+
+        public override string ToString() => "Regex sequence";
     }
 
     public class Alternation
@@ -87,7 +108,7 @@ namespace Lexico.RegexImpl
         [CharSet("*+")] char repeater;
         [Optional, Literal("?")] string lazy; // TODO: Support 'lazy' qualifiers
 
-        public override IParser Create() => new RepeatParser(typeof(string), inner.Create(), null, repeater == '+' ? 1 : 0);
+        public override IParser Create() => new RepeatParser(typeof(string), inner.Create(), null, repeater == '+' ? 1 : 0, null);
     }
 
     public class Optional : Pattern
@@ -101,7 +122,7 @@ namespace Lexico.RegexImpl
     public class Group : Pattern
     {
         [Literal("(")] Unnamed _;
-        [Term] GroupModifier modifier;
+        [Optional] GroupModifier modifier;
         [Term] Alternation inner;
         [Literal(")")] Unnamed __;
 
@@ -201,6 +222,7 @@ namespace Lexico.RegexImpl
         [Literal("\\")] Unnamed _;
         [CharSet("wWdDsS")] char id;
 
+        // TODO: C# extensions like \p{}? https://docs.microsoft.com/en-us/dotnet/standard/base-types/regular-expression-language-quick-reference
         public CharIntervalSet Ranges
         {
             get {
@@ -217,10 +239,7 @@ namespace Lexico.RegexImpl
             }
         }
 
-        public override IParser Create()
-        {
-            throw new NotImplementedException();
-        }
+        public override IParser Create() => new CharSet(Ranges);
     }
 
     public class SimpleEscape : SingleChar
@@ -239,18 +258,20 @@ namespace Lexico.RegexImpl
         };
     }
 
-    // Need to make a regex-less Number for this to work
-    // public class Quantified : Pattern
-    // {
-    //     [Term] Pattern inner;
-    //     [Literal("{")] Unnamed _;
-    //     [Term] int min;
-    //     [Literal(","), Optional] Unnamed __;
-    //     [Term] int? max;
-    //     [Literal("}")] Unnamed ___;
+    public class Quantified : Pattern
+    {
+        [Term] Pattern inner;
+        [Literal("{")] Unnamed _;
+        
+        // TODO: make a regex-less Number 
+        [CharRange("09"), Repeat] string min;
+        [Literal(","), Optional] Unnamed __;
+        [Optional, CharRange("09"), Repeat] string max;
+        [Literal("}")] Unnamed ___;
 
-    //     public override IParser Create() => new RepeatParser(typeof(string), inner.Create(), null, min, max);
-    // }
+        public override IParser Create() => new RepeatParser(typeof(string), inner.Create(), null,
+            int.Parse(min), max == null ? default(int?) : int.Parse(max));
+    }
 
     public struct SetItem
     {
@@ -262,7 +283,7 @@ namespace Lexico.RegexImpl
     {
         [Literal("[")] Unnamed _;
         [Optional, Literal("^")] string invert;
-        [Term] List<SetItem> items;
+        [Term] List<SetItem> items; // TODO: Min 1 or 0 here?
         [Literal("]")] Unnamed __;
 
         public override IParser Create() {
@@ -282,7 +303,8 @@ namespace Lexico.RegexImpl
     }
 
     public class RawChar : SingleChar {
-        [CharRange("\x32\uffff")] char value;
+        [Not, CharSet(")|")] Unnamed _;
+        [CharRange("\x20\uffff")] char value;
         public override char Value => value;
     }
 }

@@ -8,9 +8,9 @@ namespace Lexico
     {
         public override int Priority => 100;
 
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
         {
-            return new NotParser(child());
+            return new NotParser(child(null));
         }
     }
 

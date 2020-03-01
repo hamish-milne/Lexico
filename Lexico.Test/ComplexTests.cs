@@ -32,7 +32,7 @@ namespace Lexico.Test
 
         private class Word
         {
-            [Regex(@"[\p{L}]+")] public string Value { get; set; }
+            [Regex(@"[\w]+")] public string Value { get; set; }
 
             int hc => GetHashCode();
         }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using static System.Reflection.BindingFlags;
 using static System.Linq.Expressions.Expression;
+using System.Linq.Expressions;
 
 namespace Lexico
 {
@@ -14,7 +15,7 @@ namespace Lexico
     public class SequenceAttribute : TermAttribute
     {
         public override int Priority => 0;
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
             => new SequenceParser(member.GetMemberType(), null);
 
         public override bool AddDefault(MemberInfo member) => member is Type;
@@ -80,8 +81,17 @@ namespace Lexico
         {
             // Get the current value. If it's not the right type, make a new one.
             // If we're not saving the value, no need to do this
-            var obj = context.Result == null ? null :
-                context.Cache(Condition(TypeIs(context.Result, Type), Convert(context.Result, Type), New(Type)));
+            Expression? obj = null;
+            if (context.Result != null)
+            {
+                if (context.Result.CanWrite()) {
+                    obj = context.Cache(
+                        Condition(TypeIs(context.Result, Type), Convert(context.Result, Type), New(Type))
+                    );
+                } else {
+                    obj = context.Result;
+                }
+            }
             bool first = true;
             foreach (var (member, parser) in members)
             {
@@ -92,11 +102,7 @@ namespace Lexico
                 first = false;
                 // Match the item and, if we're saving the value, write it back to the member in question
                 context.Child(parser, member?.Name,
-                    member == null
-                        || obj == null
-                        || (member as PropertyInfo)?.CanWrite == false
-                        || (member as FieldInfo)?.IsInitOnly == true
-                        ? null : MakeMemberAccess(obj, member),
+                    member == null || obj == null ? null : MakeMemberAccess(obj, member),
                     null, context.Failure);
             }
             context.Succeed(obj!);
@@ -110,5 +116,21 @@ namespace Lexico
         };
 
         public override string ToString() => Type.Name;
+    }
+
+    public static class ExpressionExtensions
+    {
+        public static bool CanWrite(this Expression expression)
+        {
+            return expression switch {
+                ParameterExpression _ => true,
+                MemberExpression m => m.Member switch {
+                    FieldInfo f => !f.IsInitOnly,
+                    PropertyInfo p => p.CanWrite,
+                    _ => false
+                },
+                _ => false
+            };
+        }
     }
 }

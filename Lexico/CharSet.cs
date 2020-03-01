@@ -14,10 +14,11 @@ namespace Lexico
                 this.set.Include(c, c);
             }
         }
+        public override int Priority => 10;
 
         private readonly CharIntervalSet set;
 
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config) => new CharSet(set);
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => new CharSet(set);
     }
 
     public class CharRangeAttribute : TermAttribute
@@ -35,7 +36,7 @@ namespace Lexico
 
         private readonly CharIntervalSet set;
 
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config) => new CharSet(set);
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => new CharSet(set);
     }
 
     public class CharIntervalSet
@@ -137,6 +138,8 @@ namespace Lexico
             intervals.AddRange(newSet);
             return this;
         }
+
+        public override string ToString() => string.Join(",", intervals.Select(t => $"{t.Item1}-{t.Item2}"));
     }
 
     public class CharSet : IParser
@@ -168,5 +171,7 @@ namespace Lexico
             context.Advance(1);
             context.Succeed(context.Peek(-1));
         }
+
+        public override string ToString() => string.Join(",", ranges.Select(t => $"{t.Item1}-{t.Item2}"));
     }
 }

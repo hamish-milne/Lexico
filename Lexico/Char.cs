@@ -8,7 +8,7 @@ namespace Lexico
     {
         public override int Priority => 1;
 
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config) => CharParser.Instance;
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => CharParser.Instance;
 
         public override bool AddDefault(MemberInfo member) => member == typeof(char);
     }

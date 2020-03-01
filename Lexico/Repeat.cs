@@ -29,9 +29,17 @@ namespace Lexico
 
         public override int Priority => 20;
 
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
-            => new RepeatParser(member.GetMemberType(), null,
-            Min > 0 ? Min : default(int?), Max < Int32.MaxValue ? Max : default(int?));
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
+        {
+            var listType = member.GetMemberType();
+            var elementType = listType switch {
+                {} when listType == typeof(string) => typeof(char),
+                {IsArray: true} => listType.GetElementType(),
+                _ => listType.GetGenericArguments()[0]
+            };
+            return new RepeatParser(member.GetMemberType(), child(elementType), null,
+                Min > 0 ? Min : default(int?), Max < Int32.MaxValue ? Max : default(int?));
+        }
 
         public override bool AddDefault(MemberInfo member)
             => member is Type t && typeof(ICollection).IsAssignableFrom(t);
@@ -39,27 +47,13 @@ namespace Lexico
 
     internal class RepeatParser : IParser
     {
-        public RepeatParser(Type listType, IParser? separator, int? min, int? max)
-        {
-            OutputType = listType ?? throw new ArgumentNullException(nameof(listType));
-            var elementType = listType switch {
-                {} when listType == typeof(string) => typeof(char),
-                {IsArray: true} => listType.GetElementType(),
-                _ => listType.GetGenericArguments()[0]
-            };
-            Element = ParserCache.GetParser(elementType);
-            if (listType != typeof(string)
-                && !typeof(IList).IsAssignableFrom(listType)
-                && listType.GetMethod("Add") == null) {
-                throw new ArgumentException($"{listType} does not implement IList and has no Add method");
-            }
-            this.separator = separator;
-            Min = min;
-            Max = max;
-        }
-
         public RepeatParser(Type outputType, IParser element, IParser? separator, int? min, int? max)
         {
+            if (outputType != typeof(string)
+                && !typeof(IList).IsAssignableFrom(outputType)
+                && outputType.GetMethod("Add") == null) {
+                throw new ArgumentException($"{outputType} does not implement IList and has no Add method");
+            }
             OutputType = outputType ?? throw new ArgumentNullException(nameof(outputType));
             Element = element;
             this.separator = separator;
@@ -76,12 +70,18 @@ namespace Lexico
 
         public void Compile(ICompileContext context)
         {
-            var list = context.Result == null ? null :
-                context.Cache(OutputType switch {
-                    {} when OutputType == typeof(string) => New(typeof(StringBuilder)),
-                    {IsArray: true} => New(typeof(List<>).MakeGenericType(Element.OutputType)),
-                    _ => Condition(Equal(context.Result, Constant(null)), New(OutputType), context.Result)
-                });
+            Expression? list = null;
+            if (context.Result != null) {
+                if (context.Result.CanWrite()) {
+                    list = context.Cache(OutputType switch {
+                        {} when OutputType == typeof(string) => New(typeof(StringBuilder)),
+                        {IsArray: true} => New(typeof(List<>).MakeGenericType(Element.OutputType)),
+                        _ => Condition(Equal(context.Result, Constant(null)), New(OutputType), context.Result)
+                    });
+                } else {
+                    list = context.Result;
+                }
+            }
             if (list != null && OutputType != typeof(string)) {
                 context.Append(Call(list, nameof(IList.Clear), Type.EmptyTypes));
             }
@@ -91,10 +91,18 @@ namespace Lexico
             void AddToList() {
                 if (list != null) {
                     if (OutputType == typeof(string)) {
-                        context.Append(Call(list, nameof(StringBuilder.Append), Type.EmptyTypes, output));
+                        // Fix method finding
+                        var o = output!;
+                        if (o.Type == typeof(string)) {
+                            o = Convert(o, typeof(object));
+                        }
+                        context.Append(Call(list, nameof(StringBuilder.Append), Type.EmptyTypes, o));
                     } else {
                         context.Append(Call(list, nameof(IList.Add), Type.EmptyTypes, output));
                     }
+                }
+                if (Min.HasValue || Max.HasValue) {
+                    context.Append(PreIncrementAssign(count));
                 }
             }
 

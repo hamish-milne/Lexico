@@ -73,9 +73,10 @@ namespace Lexico
                 pattern.Append(@"[0-9A-Fa-f]+");
             } else {
                 if (Has(AllowDecimalPoint)) {
-                    pattern.Append(@"[0-9]*\.?");
+                    pattern.Append(@"[0-9]+(\.[0-9]+)?");
+                } else {
+                    pattern.Append(@"[0-9]+");
                 }
-                pattern.Append(@"[0-9]+");
             }
             if (Has(AllowExponent)) {
                 pattern.Append(@"(?>[eE][\-\+]?[0-9]+)?");
@@ -103,7 +104,6 @@ namespace Lexico
         {
             var match = context.Cache(Default(typeof(string)));
             context.Child(regex, null, match, null, context.Failure);
-            context.Append(AddAssign(context.Position, PropertyOrField(match, nameof(string.Length))));
             context.Succeed(Call(parseMethod, match, Constant(styles)));
         }
 

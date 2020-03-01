@@ -17,7 +17,7 @@ namespace Lexico
         public AlternativeAttribute(params Type[] options) { Options = options; }
         public Type[]? Options { get; }
         public override int Priority => 10;
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config) =>
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) =>
             new AlternativeParser(member.GetMemberType(), Options);
 
         public override bool AddDefault(MemberInfo member)

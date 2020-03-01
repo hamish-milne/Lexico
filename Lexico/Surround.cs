@@ -20,8 +20,8 @@ namespace Lexico
         public string Prefix { get; }
         public string Suffix { get; }
 
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
-            => new SurroundParser(new LiteralParser(Prefix), child(), new LiteralParser(Suffix));
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
+            => new SurroundParser(new LiteralParser(Prefix), child(null), new LiteralParser(Suffix));
     }
 
     /// <summary>
@@ -32,10 +32,10 @@ namespace Lexico
     {
         public override int Priority => 100;
 
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
         {
             var s = new OptionalParser(new WhitespaceParser(config));
-            return new SurroundParser(s, child(), s);
+            return new SurroundParser(s, child(null), s);
         }
     }
 
@@ -49,8 +49,8 @@ namespace Lexico
         public string Value { get; }
         public override int Priority => 80;
 
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
-            => new SurroundParser(new LiteralParser(Value), child(), null);
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
+            => new SurroundParser(new LiteralParser(Value), child(null), null);
     }
 
     /// <summary>
@@ -63,8 +63,8 @@ namespace Lexico
         public string Value { get; }
         public override int Priority => 80;
 
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
-            => new SurroundParser(null, child(), new LiteralParser(Value));
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
+            => new SurroundParser(null, child(null), new LiteralParser(Value));
     }
 
     internal class SurroundParser : IParser

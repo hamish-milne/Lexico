@@ -7,6 +7,8 @@ using static System.AttributeTargets;
 
 namespace Lexico
 {
+    public delegate IParser ChildParser(MemberInfo? childMember);
+
     /// <summary>
     /// Apply to a Member to include it in the parent parser. Generates Parser implementations for members it is applied to.
     /// </summary>
@@ -27,7 +29,7 @@ namespace Lexico
         /// <param name="config">Allows getting contextual configuration values
         /// (typically from attributes on the member or containing type)</param>
         /// <returns>The constructed Parser</returns>
-        public virtual IParser Create(MemberInfo member, Func<IParser> child, IConfig config) => child();
+        public virtual IParser Create(MemberInfo member, ChildParser child, IConfig config) => child(null);
 
         /// <summary>
         /// Check if the attribute should be implicitly applied to a member
@@ -107,30 +109,46 @@ namespace Lexico
             .Where(typeof(TermAttribute).IsAssignableFrom)
             .Select(t => { try { return Activator.CreateInstance(t); } catch { return null; }}) // TODO: Report errors here instead of throwing them away
             .OfType<TermAttribute>()
-            .OrderBy(a => a.Priority)
+            .OrderByDescending(a => a.Priority)
             .ToArray();
 
         static IParser GetParserUncached(MemberInfo member)
         {
-            var defaults = new Stack<TermAttribute>(defaultAttrs);
-            var attrs = new Stack<TermAttribute>(member.GetCustomAttributes<TermAttribute>(true).OrderBy(a => a.Priority));
+            var defaults = new Queue<TermAttribute>(defaultAttrs);
+            var attrs = new Queue<TermAttribute>(member.GetCustomAttributes<TermAttribute>(true).OrderByDescending(a => a.Priority));
             var mConfig = GetConfig(member) ?? Config.Default;
-            IParser Next() {
+            IParser Next(MemberInfo? child) {
+                if (child != null) {
+                    if (attrs.Count == 0) {
+                        return GetParser(child);
+                        // TODO: If this is not true, it is possible for recursion to not work properly
+                    }
+                    foreach (var attr in child.GetCustomAttributes<TermAttribute>(true).OrderByDescending(a => a.Priority)) {
+                        attrs.Enqueue(attr);
+                    }
+                    member = child;
+                    defaults = new Queue<TermAttribute>(defaultAttrs);
+                }
                 if (attrs.Count > 0) {
-                    return attrs.Pop().Create(member, Next, mConfig);
+                    return attrs.Dequeue().Create(member, Next, mConfig);
                 }
                 while (defaults.Count > 0) {
-                    var d = defaults.Pop();
+                    var d = defaults.Dequeue();
                     if (d.AddDefault(member)) {
                         return d.Create(member, Next, mConfig);
                     }
                 }
+                // TODO: Put this into TermAttribute.Create instead?
                 if (!(member is Type)) {
                     return GetParser(member.GetMemberType());
                 }
                 throw new ArgumentException($"Incomplete parser definition for {member}");
             }
-            return Next();
+            var ret = Next(null);
+            if (attrs.Count > 0) {
+                throw new ArgumentException($"Ambiguous parser definition for {member}; {attrs.Dequeue()} was defined but not used");
+            }
+            return ret;
         }
 
         private class Config : IConfig
