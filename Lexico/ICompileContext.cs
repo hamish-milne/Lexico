@@ -28,6 +28,7 @@ namespace Lexico
             }
             context.Succeed();
         }
+        // TODO: Check that succeed and fail are both called by child contexts?
         public static void Succeed(this ICompileContext context)
         {
             if (context.Success != null) {

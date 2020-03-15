@@ -15,6 +15,7 @@ namespace Lexico.RegexImpl
     }
 
     [CompileFlags(CompileFlags.CheckImmediateLeftRecursion | CompileFlags.Memoizing)]
+    [TopLevel]
     public class Regex
     {
         [Optional, Literal("^")] string beginAnchor;

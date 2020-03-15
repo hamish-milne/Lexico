@@ -56,9 +56,7 @@ namespace Lexico
             if (skip != null) {
                 context.Append(Label(skip));
             }
-            if (context.Success != null) {
-                context.Append(Goto(context.Success));
-            }
+            context.Succeed();
         }
 
         public override string ToString() => $"{child}?";

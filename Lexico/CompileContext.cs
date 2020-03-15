@@ -204,6 +204,7 @@ namespace Lexico
             }
 
             // TODO: Remove the 'is UnaryParser' check; instead don't trace on the recursion wrapper calls
+            // TODO: Make sure that the Name info passes into UnaryParser
             var doTrace = trace != null && !(child is UnaryParser);
             // In some cases we need to rewrite the result labels to add code at the end of parsing
             var childSuccess = doTrace ? Label() : onSuccess;
@@ -279,10 +280,11 @@ namespace Lexico
                 Append(Goto(skip));
                 Append(Label(childFail));
                 Append(remember!);
-                Append(Label(skip));
                 if (!doTrace) {
                     Append(Label(memoEnd));
+                    Append(Goto(onFail));
                 }
+                Append(Label(skip));
             }
 
             // Trace end

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using static System.Reflection.BindingFlags;
+using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
@@ -77,13 +78,18 @@ namespace Lexico
 
         public void Compile(ICompileContext context)
         {
+            var success = context.Success ?? Label();
             foreach (var option in options)
             {
                 var savePoint = context.Save();
-                context.Child(option, null, context.Result, context.Success, savePoint);
+                context.Child(option, null, context.Result, success, savePoint);
                 context.Restore(savePoint);
             }
             context.Fail();
+            if (context.Success == null) {
+                context.Append(Label(success));
+            }
+            context.Succeed();
         }
 
         public override string ToString() => $"Any {OutputType.Name}";

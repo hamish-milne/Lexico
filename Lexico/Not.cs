@@ -22,12 +22,10 @@ namespace Lexico
 
         public void Compile(ICompileContext context)
         {
-            var success = context.Success ?? Label();
-            context.Child(inner, null, null, context.Failure, success);
-            if (success != context.Success) {
-                context.Append(Label(success));
-                context.Succeed();
-            }
+            var savePoint = context.Save();
+            context.Child(inner, null, context.Result, context.Failure, savePoint);
+            context.Restore(savePoint);
+            context.Succeed();
         }
     }
 }
