@@ -1,4 +1,4 @@
-#pragma warning disable CS8618,IDE0044,IDE0051
+#pragma warning disable CS8618,IDE0044,IDE0051,CS0169,CS0649
 using System.Linq.Expressions;
 using System.Text;
 using System;

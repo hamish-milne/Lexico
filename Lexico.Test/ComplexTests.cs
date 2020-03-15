@@ -1,3 +1,4 @@
+#pragma warning disable CS0169,CS0649,IDE0044,IDE0051
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,13 +29,12 @@ namespace Lexico.Test
                 [6.1]: {""baz"": ""bat""}
             }
             ");
+            Assert.NotNull(expr);
         }
 
         private class Word
         {
             [Regex(@"[\w]+")] public string Value { get; set; }
-
-            int hc => GetHashCode();
         }
 
         private class Dash

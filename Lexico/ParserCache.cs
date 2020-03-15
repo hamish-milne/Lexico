@@ -174,7 +174,7 @@ namespace Lexico
 
         private static IConfig? GetConfig(MemberInfo member)
         {
-            IConfig? GetConfigInternal(MemberInfo? m, IConfig? parent)
+            static IConfig? GetConfigInternal(MemberInfo? m, IConfig? parent)
             {
                 if (m == null) {
                     return parent;

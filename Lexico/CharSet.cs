@@ -172,6 +172,7 @@ namespace Lexico
             context.Succeed(context.Peek(-1));
         }
 
-        public override string ToString() => string.Join(",", ranges.Select(t => $"{t.Item1}-{t.Item2}"));
+        // TODO: Use single chars for ToString
+        public override string ToString() => string.Join(",", ranges.Select(t => $"{t.start}-{t.end}"));
     }
 }
