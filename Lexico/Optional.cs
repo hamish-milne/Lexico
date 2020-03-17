@@ -14,13 +14,13 @@ namespace Lexico
     public class OptionalAttribute : TermAttribute
     {
         public override int Priority => 100;
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
         {
             IParser c;
             if (member is Type t && t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>)) {
-                c = ParserCache.GetParser(t.GetGenericArguments()[0]);
+                c = child(t.GetGenericArguments()[0]);
             } else {
-                c = child();
+                c = child(null);
             }
             if (c is OptionalParser o) {
                 return o;
@@ -46,7 +46,7 @@ namespace Lexico
         private readonly IParser child;
 
         public Type OutputType => child.OutputType; // TODO: Nullable<T> here?
-        
+
         public void Compile(ICompileContext context)
         {
             var savePoint = context.Save();
@@ -56,9 +56,7 @@ namespace Lexico
             if (skip != null) {
                 context.Append(Label(skip));
             }
-            if (context.Success != null) {
-                context.Append(Goto(context.Success));
-            }
+            context.Succeed();
         }
 
         public override string ToString() => $"{child}?";

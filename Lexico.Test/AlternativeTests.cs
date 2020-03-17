@@ -1,3 +1,4 @@
+#pragma warning disable CS0169,CS0649,IDE0044,IDE0051
 using System;
 using Xunit;
 
@@ -40,11 +41,11 @@ namespace Lexico.Test
         {
             if (passes)
             {
-                Assert.True(Lexico.TryParse(expression, out Truthy b, new ConsoleTrace()));
+                Assert.True(Lexico.TryParse(expression, out Truthy _, new ConsoleTrace()));
             }
             else
             {
-                Assert.False(Lexico.TryParse(expression, out Truthy b, new ConsoleTrace()));
+                Assert.False(Lexico.TryParse(expression, out Truthy _, new ConsoleTrace()));
             }
         }
 

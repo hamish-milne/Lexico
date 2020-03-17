@@ -12,12 +12,12 @@ namespace Lexico
     public class TopLevelAttribute : TermAttribute
     {
         public override int Priority => 110;
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
         {
             if (member == typeof(EOF)) {
                 return EOFParser.Instance;
             }
-            return new SurroundParser(null, child(), EOFParser.Instance);
+            return new SurroundParser(null, child(null), EOFParser.Instance);
         }
     }
 

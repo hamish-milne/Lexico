@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using static System.Reflection.BindingFlags;
+using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
@@ -17,7 +18,7 @@ namespace Lexico
         public AlternativeAttribute(params Type[] options) { Options = options; }
         public Type[]? Options { get; }
         public override int Priority => 10;
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config) =>
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) =>
             new AlternativeParser(member.GetMemberType(), Options);
 
         public override bool AddDefault(MemberInfo member)
@@ -65,19 +66,30 @@ namespace Lexico
             }
         }
 
+        public AlternativeParser(Type outputType, IEnumerable<IParser> options)
+        {
+            OutputType = outputType;
+            this.options = options.ToArray();
+        }
+
         private readonly IParser[] options;
 
         public Type OutputType { get; }
 
         public void Compile(ICompileContext context)
         {
+            var success = context.Success ?? Label();
             foreach (var option in options)
             {
                 var savePoint = context.Save();
-                context.Child(option, null, context.Result, context.Success, savePoint);
+                context.Child(option, null, context.Result, success, savePoint);
                 context.Restore(savePoint);
             }
             context.Fail();
+            if (context.Success == null) {
+                context.Append(Label(success));
+            }
+            context.Succeed();
         }
 
         public override string ToString() => $"Any {OutputType.Name}";

@@ -1,3 +1,4 @@
+using System.Text;
 using System.Reflection;
 using System.Collections;
 using System;
@@ -18,7 +19,7 @@ namespace Lexico
         /// The minimum number of elements to match to succeed
         /// </summary>
         /// <value></value>
-        public int Min { get; set; } = 0;
+        public int Min { get; set; } = 1;
 
         /// <summary>
         /// The maximum number of elements to match (the parser will simply stop when it reaches this amount)
@@ -28,9 +29,17 @@ namespace Lexico
 
         public override int Priority => 20;
 
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
-            => new RepeatParser(member.GetMemberType(), null,
-            Min > 0 ? Min : default(int?), Max < Int32.MaxValue ? Max : default(int?));
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
+        {
+            var listType = member.GetMemberType();
+            var elementType = listType switch {
+                {} when listType == typeof(string) => typeof(char),
+                {IsArray: true} => listType.GetElementType(),
+                _ => listType.GetGenericArguments()[0]
+            };
+            return new RepeatParser(member.GetMemberType(), child(elementType), null,
+                Min > 0 ? Min : default(int?), Max < Int32.MaxValue ? Max : default(int?));
+        }
 
         public override bool AddDefault(MemberInfo member)
             => member is Type t && typeof(ICollection).IsAssignableFrom(t);
@@ -38,58 +47,76 @@ namespace Lexico
 
     internal class RepeatParser : IParser
     {
-        public RepeatParser(Type listType, IParser? separator, int? min, int? max)
+        public RepeatParser(Type outputType, IParser element, IParser? separator, int? min, int? max)
         {
-            ListType = listType ?? throw new ArgumentNullException(nameof(listType));
-            elementType = listType.IsArray ? listType.GetElementType() : listType.GetGenericArguments()[0];
-            element = ParserCache.GetParser(elementType);
-            if (!typeof(IList).IsAssignableFrom(listType)) {
-                addMethod = listType.GetMethod("Add")
-                    ?? throw new ArgumentException($"{listType} does not implement IList and has no Add method");
+            if (outputType != typeof(string)
+                && !typeof(IList).IsAssignableFrom(outputType)
+                && outputType.GetMethod("Add") == null) {
+                throw new ArgumentException($"{outputType} does not implement IList and has no Add method");
             }
+            OutputType = outputType ?? throw new ArgumentNullException(nameof(outputType));
+            Element = element;
             this.separator = separator;
             Min = min;
             Max = max;
         }
 
-        private readonly Type elementType;
-        public Type ListType { get; }
         public int? Min { get; }
         public int? Max { get; }
-        private readonly IParser element;
-        private readonly MethodInfo? addMethod;
+        public IParser Element { get; }
         private readonly IParser? separator;
 
-        public Type OutputType => ListType;
+        public Type OutputType { get; }
 
         public void Compile(ICompileContext context)
         {
-            var list = context.Result == null ? null :
-                context.Cache(ListType.IsArray ? (Expression)New(typeof(List<object>)) : (
-                    Condition(Equal(context.Result, Constant(null)), New(ListType), context.Result)
-                ));
-            if (list != null) {
+            Expression? list = null;
+            if (context.Result != null) {
+                if (context.Result.CanWrite()) {
+                    list = context.Cache(OutputType switch {
+                        {} when OutputType == typeof(string) => New(typeof(StringBuilder)),
+                        {IsArray: true} => New(typeof(List<>).MakeGenericType(Element.OutputType)),
+                        _ => Condition(Equal(context.Result, Constant(null)), New(OutputType), context.Result)
+                    });
+                } else {
+                    list = context.Result;
+                }
+            }
+            if (list != null && OutputType != typeof(string)) {
                 context.Append(Call(list, nameof(IList.Clear), Type.EmptyTypes));
             }
             // Make a var to store the result before adding to the list
-            var output = context.Result == null ? null : context.Cache(Default(elementType));
+            var output = context.Result == null ? null : context.Cache(Default(Element.OutputType));
             var count = context.Cache(Constant(0));
             void AddToList() {
                 if (list != null) {
-                    context.Append(Call(list, nameof(IList.Add), Type.EmptyTypes, output));
+                    if (OutputType == typeof(string)) {
+                        // Fix method finding
+                        var o = output!;
+                        if (o.Type == typeof(string)) {
+                            o = Convert(o, typeof(object));
+                        }
+                        context.Append(Call(list, nameof(StringBuilder.Append), Type.EmptyTypes, o));
+                    } else {
+                        context.Append(Call(list, nameof(IList.Add), Type.EmptyTypes, output));
+                    }
+                }
+                if (Min.HasValue || Max.HasValue) {
+                    context.Append(PreIncrementAssign(count));
                 }
             }
-
-            // The first element must match
-            context.Child(element, null, output, null, context.Failure);
-            AddToList();
 
             // Begin the loop
             var loop = Label();
             var loopEnd = Label();
+
+            // First element
+            context.Child(Element, null, output, null, loopEnd);
+            AddToList();
+
             context.Append(Label(loop));
             if (output != null) {
-                context.Append(Assign(output, Default(elementType)));
+                context.Append(Assign(output, Default(Element.OutputType)));
             }
             if (Max.HasValue) {
                 context.Append(IfThen(GreaterThanOrEqual(count, Constant(Max.Value)), Goto(loopEnd)));
@@ -99,7 +126,7 @@ namespace Lexico
             if (separator != null) {
                 context.Child(separator, "(Separator)", null, null, loopFail);
             }
-            context.Child(element, null, output, null, loopFail);
+            context.Child(Element, null, output, null, loopFail);
             AddToList();
             context.Append(Goto(loop));
             context.Restore(loopFail);
@@ -109,9 +136,13 @@ namespace Lexico
             if (Min.HasValue) {
                 context.Append(IfThen(LessThan(count, Constant(Min.Value)), Goto(context.Failure)));
             }
-            context.Succeed(list ?? Empty());
+            if (OutputType == typeof(string) && list != null) {
+                context.Succeed(Call(list, nameof(StringBuilder.ToString), Type.EmptyTypes));
+            } else {
+                context.Succeed(list ?? Empty());
+            }
         }
 
-        public override string ToString() => $"[{element}...]";
+        public override string ToString() => $"[{Element}...]";
     }
 }

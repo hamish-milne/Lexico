@@ -13,16 +13,24 @@ namespace Lexico
         public SeparatedByAttribute(Type separator) {
             separatorType = separator ?? throw new ArgumentNullException(nameof(separator));
         }
-        private readonly Type separatorType;
 
-        protected virtual IParser GetSeparator(IConfig config) => ParserCache.GetParser(separatorType);
+        public SeparatedByAttribute(string separator) {
+            separatorString = separator ?? throw new ArgumentNullException(nameof(separator));
+        }
 
-        public override IParser Create(MemberInfo member, Func<IParser> child, IConfig config)
+        private readonly Type? separatorType;
+        private readonly string? separatorString;
+
+        protected virtual IParser GetSeparator(IConfig config) => separatorType == null
+            ? new LiteralParser(separatorString!)
+            : ParserCache.GetParser(separatorType);
+
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
         {
-            var c = child();
+            var c = child(null);
             var sep = GetSeparator(config);
             return c switch {
-                RepeatParser r => new RepeatParser(r.ListType, sep, r.Min, r.Max),
+                RepeatParser r => new RepeatParser(r.OutputType, r.Element, sep, r.Min, r.Max),
                 SequenceParser s => new SequenceParser(s.Type, sep),
                 _ => throw new ArgumentException($"Separator not valid on {c}")
             };

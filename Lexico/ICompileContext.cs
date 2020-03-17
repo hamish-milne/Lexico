@@ -23,11 +23,12 @@ namespace Lexico
     {
         public static void Succeed(this ICompileContext context, Expression value)
         {
-            if (context.Result != null) {
+            if (context.Result?.CanWrite() == true) {
                 context.Append(Assign(context.Result, Convert(value, context.Result.Type)));
             }
             context.Succeed();
         }
+        // TODO: Check that succeed and fail are both called by child contexts?
         public static void Succeed(this ICompileContext context)
         {
             if (context.Success != null) {
