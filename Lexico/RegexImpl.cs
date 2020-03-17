@@ -133,7 +133,8 @@ namespace Lexico.RegexImpl
     public abstract class GroupModifier {}
 
     public class NonCapturing : GroupModifier {
-        [Literal("?:")] Unnamed _;
+        [Literal("?")] Unnamed _;
+        [CharSet(":>")] Unnamed __;
     }
 
     public class Lookaround : GroupModifier {
@@ -150,7 +151,16 @@ namespace Lexico.RegexImpl
     public interface ISetItem {
         CharIntervalSet Ranges { get; }
     }
+    
+    public class CharRangePattern : ISetItem
+    {
+        [Term] SingleChar start;
+        [Literal("-")] Unnamed _;
+        [Term] SingleChar end;
 
+        public CharIntervalSet Ranges => new CharIntervalSet().Include(start.Value, end.Value);
+    }
+    
     public abstract class SingleChar : Pattern, ISetItem {
         public abstract char Value { get; }
         public CharIntervalSet Ranges => new CharIntervalSet().Include(Value, Value);
@@ -172,6 +182,13 @@ namespace Lexico.RegexImpl
         [CharRange("AZ")] char id;
         public override char Value => (char)(id - 'A' + 1);
     }
+    
+    public class ExtendedUnicodeChar : SingleChar
+    {
+        [Literal("\\u")] Unnamed _;
+        [CharRange("09", "AF", "af"), Repeat(Min = 0)] string hexValue;
+        public override char Value => (char)uint.Parse(hexValue, NumberStyles.AllowHexSpecifier);
+    }
 
     public class UnicodeChar : SingleChar {
         [Literal("\\u")] Unnamed _;
@@ -190,22 +207,6 @@ namespace Lexico.RegexImpl
         [CharRange("19")] char number;
 
         public override IParser Create() => throw new NotSupportedException();
-    }
-
-    public class ExtendedUnicodeChar : SingleChar
-    {
-        [Literal("\\u")] Unnamed _;
-        [CharRange("09", "AF", "af"), Repeat(Min = 0)] string hexValue;
-        public override char Value => (char)uint.Parse(hexValue, NumberStyles.AllowHexSpecifier);
-    }
-
-    public class CharRangePattern : ISetItem
-    {
-        [Term] SingleChar start;
-        [Literal("-")] Unnamed _;
-        [Term] SingleChar end;
-
-        public CharIntervalSet Ranges => new CharIntervalSet().Include(start.Value, end.Value);
     }
 
     public class WordBoundary : Pattern
