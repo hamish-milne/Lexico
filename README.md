@@ -10,7 +10,7 @@ Lexico is being developed from the ground up to make text comprehension a breeze
 
 Here are a a few reasons to use Lexico:
 
-* **Simple and powerfu**l - Optionals, alternatives, left recursion, and infix precedence work out of the box, without the typical pitfalls and complexity of other libraries
+* **Simple and powerful** - Optionals, alternatives, left recursion, and infix precedence work out of the box, without the typical pitfalls and complexity of other libraries
 * **Strong and safe** - The output of any Parse call is an object of the type you requested, ready to be used right away
 * **Code integration** - Save even more time and effort by integrating functionality \(like name validation, evaluation, or post-processing\) directly into the grammar objects
 * **Awesome speed** - No per-parse overhead and minimal allocations make Lexico blazing fast, even compared to hand-built alternatives! \(perf stats to come!\)
@@ -101,6 +101,4 @@ var result = Lexico.Parse<Expression>("2+2").Value;
 * Our first alternative is `Add`, which comprises two numbers with a literal "+" between them. We can override the `Value` property and put some functionality in there, allowing our program code to live side-by-side with the grammar definition
 * Our second alternative is `Cosine`, comprising "cos\(", a number, then "\)". Like `Add`, we override `Value` and put a different function there.
 * Finally we can call `Parse` with our top-level grammar, the base type. Since `Expression` is an Alternative, Lexico will return an instance of the first grammar that matches, which in this case is `Add`, so `result` is 4.
-
-Sometimes 
 

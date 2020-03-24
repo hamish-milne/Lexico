@@ -4,6 +4,12 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <LangVersion>8</LangVersion>
     <Nullable>enable</Nullable>
+    
+    <PackageId>Lexico</PackageId>
+    <Version>1.0.0-alpha1</Version>
+    <Authors>hamish-milne, Craig-J</Authors>
+    <PackageDescription>Type-based recursive descent parser for .NET. Lexico generates the parse grammar using attributes and produces object instances when applied.</PackageDescription>
+    <RepositoryUrl>https://github.com/hamish-milne/Lexico</RepositoryUrl>
   </PropertyGroup>
 
 </Project>
