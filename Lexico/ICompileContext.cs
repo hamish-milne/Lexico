@@ -14,6 +14,7 @@ namespace Lexico
         Expression Length { get; }
         Expression Cache(Expression value);
         Expression String { get; }
+        Expression UserObject { get; }
         void Append(Expression statement);
         void Child(IParser child, string? name, Expression? result, LabelTarget? onSuccess, LabelTarget onFail);
         void Recursive(IParser child);
@@ -51,5 +52,5 @@ namespace Lexico
                 new []{index == 0 ? context.Position : Add(context.Position, Constant(index))});
     }
 
-    internal delegate bool Parser<T>(string input, ref int position, ref T value, ITrace trace);
+    internal delegate bool Parser<T>(string input, ref int position, ref T value, ITrace trace, object? userObject);
 }

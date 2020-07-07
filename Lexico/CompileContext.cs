@@ -15,6 +15,7 @@ namespace Lexico
         public Expression? Result { get; }
         public Expression Length { get; }
         public Expression String { get; }
+        public Expression UserObject { get; }
 
         private delegate bool LocalParser<T>(ref T value);
 
@@ -77,12 +78,12 @@ namespace Lexico
             public bool Remember(int id, int pos) => cache.Add((id, pos));
         }
 
-        private CompileContext(Expression text, Expression position, Expression result, LabelTarget onSuccess, LabelTarget onFail, Expression? trace)
+        private CompileContext(Expression text, Expression position, Expression result, LabelTarget onSuccess, LabelTarget onFail, Expression? trace, Expression userObject)
         {
             this.Success = onSuccess;
             this.Failure = onFail;
-            byRefPosition = position;
-            byRefResult = result;
+            this.byRefPosition = position;
+            this.byRefResult = result;
             this.Position = Cache(position);
             this.Result = Cache(result);
             this.Length = PropertyOrField(text, nameof(string.Length));
@@ -96,6 +97,7 @@ namespace Lexico
             this.ilrStack = Cache(Constant(default(ulong)));
             this.ilrPos = Cache(position);
             this.trace = trace;
+            this.UserObject = userObject;
             this.parsersById = new List<IParser>();
         }
 
@@ -117,6 +119,7 @@ namespace Lexico
             this.ilrPos = parent.ilrPos;
             this.trace = parent.trace;
             this.enableIlrCheck = enableIlrCheck;
+            this.UserObject = parent.UserObject;
             this.memo = parent.memo;
             this.parsersById = parent.parsersById;
             this.doIlrChecks = parent.doIlrChecks;
@@ -134,8 +137,9 @@ namespace Lexico
             var onFail = Label();
             var result = Parameter(parser.OutputType.MakeByRefType());
             var traceParam = Parameter(typeof(ITrace));
+            var userObject = Parameter(typeof(object));
             var context = new CompileContext(text, position, result, onSuccess, onFail,
-                (flags & CompileFlags.Trace) != 0 ? traceParam : null);
+                (flags & CompileFlags.Trace) != 0 ? traceParam : null, userObject);
             if ((flags & (CompileFlags.Memoizing | CompileFlags.AggressiveMemoizing)) != 0) {
                 var memoType = (flags & CompileFlags.AggressiveMemoizing) != 0 ? typeof(AggressiveMemo) : typeof(Memo);
                 context.memo = context.Cache(New(memoType));
@@ -149,7 +153,7 @@ namespace Lexico
             return Lambda(
                 typeof(Parser<>).MakeGenericType(parser.OutputType),
                 block,
-                text, position, result, traceParam
+                text, position, result, traceParam, userObject
             ).Compile();
         }
 
