@@ -12,6 +12,8 @@
     <PackageDescription>Type-based recursive descent parser for .NET. Lexico generates the parse grammar using attributes and produces object instances when applied.</PackageDescription>
     <PackageTags>Parser; Parsing</PackageTags>
     <RepositoryUrl>https://github.com/hamish-milne/Lexico</RepositoryUrl>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageVersion>1.0.0-alpha2</PackageVersion>
   </PropertyGroup>
 
 </Project>

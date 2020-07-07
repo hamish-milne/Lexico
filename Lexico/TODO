@@ -26,20 +26,22 @@
 ☐ Better Alternatives
     ✔ Explicit 'alternatives' attribute @done(20-02-23 17:20)
     ✔ Deferred explicit 'indirect alternative' @done(20-02-23 17:20)
-    ☐ 'Excludes' attribute
+    ☐ 'Excludes' attribute - for use sites where some alternatives should be excluded
     ☐ Priority attribute
+    ☐ 'Ignore' alternative attribute - for derived classes which should not be considered
 ✔ Repeat min/max count? @done(20-02-08 22:47)
 ✔ Custom terminals @done(20-02-08 10:22)
 ✔ Punctuation attributes (instead of Unnamed) @done(20-02-08 22:39)
 ☐ UTF8 support
     ☐ Token streams
-☐ Interface for Location
+✔ Interface for Location @done(20-05-04 12:00)
 ☐ Precise error reporting
 ☐ Formatting
-☐ JSON implementation!!
-☐ Regex implementation!!
+☐ Parent attribute
+✔ JSON implementation!! @done(20-05-04 12:00)
+✔ Regex implementation!! @done(20-05-04 12:00)
 ✔ Perf test @done(20-02-23 13:33)
 ☐ Additional constructs
-    ☐ Lookahead
+    ✔ Lookahead @done(20-05-04 12:00)
     ☐ Lookbehind
-    ☐ Negation
+    ✔ Negation @done(20-05-04 12:00)
