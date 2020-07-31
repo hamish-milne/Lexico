@@ -6,6 +6,7 @@ namespace Lexico.Test
 {
     public class RepeatTests
     {
+        [WhitespaceSurrounded, MultiLine]
         private struct Comma
         {
             [Literal(",")] private Unnamed _;
@@ -39,5 +40,22 @@ namespace Lexico.Test
 
         [Fact]
         public void OptionalRepeatOfNothingReturnsNull() => Assert.Null(Lexico.Parse<OptionalRepeat>("[]").List);
+
+
+        public abstract class RecBase { }
+
+        public class Recursive : RecBase
+        {
+            [Literal("foo")] public Unnamed Start { get; }
+            [Term, SeparatedBy(typeof(Comma))] public List<RecBase> RecBase { get; } = new List<RecBase>();
+        }
+
+        public class LiteralCase : RecBase
+        {
+            [Literal("bar")] public Unnamed Literal { get; }
+        }
+        
+        [Fact]
+        public void SeperatorWithinRepeatedRecursive() => Assert.Equal<RecBase>(Lexico.Parse<List<RecBase>>("foobar,bar"), new List<RecBase> {new Recursive{RecBase = {new LiteralCase(), new LiteralCase()}}});
     }
 }

@@ -90,6 +90,9 @@ namespace Lexico
                         var placeholder = new UnaryParser();
                         cache.Add(member, placeholder);
                         return placeholder;
+                    } else if (member is Type t && t.IsGenericType && t.GetGenericTypeDefinition() == typeof(List<>)) {
+                        parser = GetParserUncached(member);
+                        cache[member] = parser;
                     } else {
                         parserStack.Push(member);
                         parser = GetParserUncached(member);
