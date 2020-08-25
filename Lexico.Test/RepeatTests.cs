@@ -1,5 +1,6 @@
 #pragma warning disable CS0169,CS0649,IDE0044,IDE0051
 using System.Collections.Generic;
+using FluentAssertions;
 using Xunit;
 
 namespace Lexico.Test
@@ -56,6 +57,8 @@ namespace Lexico.Test
         }
         
         [Fact]
-        public void SeperatorWithinRepeatedRecursive() => Assert.Equal<RecBase>(Lexico.Parse<List<RecBase>>("foobar,bar"), new List<RecBase> {new Recursive{RecBase = {new LiteralCase(), new LiteralCase()}}});
+        public void SeperatorWithinRepeatedRecursive() => Lexico.Parse<List<RecBase>>("foobar,bar")
+                                                                .Should()
+                                                                .ContainEquivalentOf(new Recursive{RecBase = {new LiteralCase(), new LiteralCase()}});
     }
 }
