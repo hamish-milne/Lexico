@@ -74,11 +74,7 @@ namespace Lexico.Test
     5: ""bar"",
     [6.1]: {""baz"": ""bat""}
 }")]
-        public void InvalidJsonTest(string testName, string text)
-        {
-            var success = Lexico.TryParse(text, out Json.JsonDocument result, new XunitUserTrace(_outputHelper));
-            Assert.True(success);
-        }
+        public void InvalidJsonTest(string testName, string text) => Assert.True(!Lexico.TryParse(text, out Json.JsonDocument result, new XunitUserTrace(_outputHelper)));
 
         private class Word
         {
