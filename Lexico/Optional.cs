@@ -1,6 +1,5 @@
 using System.Reflection;
 using System;
-using static System.AttributeTargets;
 using static System.Linq.Expressions.Expression;
 
 namespace Lexico
@@ -41,17 +40,17 @@ namespace Lexico
     internal class OptionalParser : IParser
     {
         public OptionalParser(IParser child) {
-            this.child = child;
+            Child = child;
         }
-        private readonly IParser child;
+        public readonly IParser Child;
 
-        public Type OutputType => child.OutputType; // TODO: Nullable<T> here?
+        public Type OutputType => Child.OutputType; // TODO: Nullable<T> here?
 
         public void Compile(ICompileContext context)
         {
             var savePoint = context.Save();
             var skip = context.Success == null ? Label() : null;
-            context.Child(child, null, context.Result, context.Success ?? skip, savePoint);
+            context.Child(Child, null, context.Result, context.Success ?? skip, savePoint);
             context.Restore(savePoint);
             if (skip != null) {
                 context.Append(Label(skip));
@@ -59,6 +58,6 @@ namespace Lexico
             context.Succeed();
         }
 
-        public override string ToString() => $"{child}?";
+        public override string ToString() => $"{Child}?";
     }
 }
