@@ -10,6 +10,8 @@ namespace Lexico
     [AttributeUsage(Field | Property | Class | Struct, AllowMultiple = false)]
     public class SeparatedByAttribute : TermAttribute
     {
+        public override int Priority => 25;
+
         public SeparatedByAttribute(Type separator) {
             separatorType = separator ?? throw new ArgumentNullException(nameof(separator));
         }
