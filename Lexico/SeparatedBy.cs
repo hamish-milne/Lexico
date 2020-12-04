@@ -33,7 +33,7 @@ namespace Lexico
             var sep = GetSeparator(config);
             return c switch {
                 RepeatParser r => new RepeatParser(r.OutputType, r.Element, sep, r.Min, r.Max),
-                SequenceParser s => new SequenceParser(s.Type, sep),
+                SequenceParser s => new SequenceParser(s.Type, sep, s.CheckZeroLength),
                 _ => throw new ArgumentException($"Separator not valid on {c}")
             };
         }
