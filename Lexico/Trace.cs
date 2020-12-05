@@ -88,7 +88,7 @@ namespace Lexico
                         if (text.String != null && text.Length == 0 && text.Start < text.String.Length) {
                             text = new StringSegment(text.String, text.Start, text.Length + 1);
                         }
-                        sb.Append("\u2717 (got `").Append(text.ToString().Replace("\n", "\\n")).Append("`)");
+                        sb.Append("\u2717 (got `").Append(text.ToString().Replace("\n", "\\n").Replace("\r", "\\r")).Append("`)");
                     }
                     break;
                 case false:
