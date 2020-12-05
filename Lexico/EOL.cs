@@ -32,9 +32,13 @@ namespace Lexico
             var breakTarget = Label();
             var fail = Goto(context.Failure);
             var succeed = Goto(breakTarget);
+            context.Append(IfThen(GreaterThanOrEqual(context.Position, context.Length), succeed));
             context.Append(Switch(context.Peek(0), fail,
                 SwitchCase(Block(AddAssign(context.Position, Constant(1)), succeed), Constant('\n')),
-                SwitchCase(IfThenElse(Equal(context.Peek(1), Constant('\n')),
+                SwitchCase(IfThenElse(And(
+                        LessThan(Add(Constant(1), context.Position), context.Length),
+                        Equal(context.Peek(1), Constant('\n'))
+                    ),
                     Block(AddAssign(context.Position, Constant(2)), succeed),
                     fail), Constant('\r'))
             ));

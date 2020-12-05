@@ -49,10 +49,11 @@ namespace Lexico
             OutputType = baseType;
             if (optionTypes != null)
             {
-                foreach (var type in optionTypes)
-                {
-                    if (!baseType.IsAssignableFrom(type)) throw new ArgumentException($"Option '{type}' is not assignable to base type '{baseType}'");
-                }
+                if (baseType != typeof(Unnamed))
+                    foreach (var type in optionTypes)
+                    {
+                        if (!baseType.IsAssignableFrom(type)) throw new ArgumentException($"Option '{type}' is not assignable to base type '{baseType}'");
+                    }
             }
             else
             {

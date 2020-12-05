@@ -31,7 +31,7 @@ namespace Lexico
 
         public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
         {
-            var listType = member.GetMemberType();
+            var listType = member.GetMemberType() ?? throw new ArgumentException();
             var elementType = listType switch {
                 {} when listType == typeof(string) => typeof(char),
                 {IsArray: true} => listType.GetElementType(),
