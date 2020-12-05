@@ -12,11 +12,12 @@ namespace Lexico
         Expression Position { get; }
         Expression? Result { get; }
         Expression Length { get; }
+        Expression? Cut { get; }
         Expression Cache(Expression value);
         Expression String { get; }
         Expression UserObject { get; }
         void Append(Expression statement);
-        void Child(IParser child, string? name, Expression? result, LabelTarget? onSuccess, LabelTarget onFail);
+        void Child(IParser child, string? name, Expression? result, LabelTarget? onSuccess, LabelTarget onFail, Expression? cut = null);
         void Recursive(IParser child);
     }
 

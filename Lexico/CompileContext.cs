@@ -16,6 +16,7 @@ namespace Lexico
         public Expression Length { get; }
         public Expression String { get; }
         public Expression UserObject { get; }
+        public Expression? Cut { get; }
 
         private delegate bool LocalParser<T>(ref T value);
 
@@ -101,7 +102,7 @@ namespace Lexico
             this.parsersById = new List<IParser>();
         }
 
-        private CompileContext(CompileContext parent, IParser source, Expression? result, LabelTarget? onSuccess, LabelTarget onFail, bool enableIlrCheck)
+        private CompileContext(CompileContext parent, IParser source, Expression? result, LabelTarget? onSuccess, LabelTarget onFail, bool enableIlrCheck, Expression? cut)
         {
             this.Success = onSuccess;
             this.Failure = onFail;
@@ -123,6 +124,7 @@ namespace Lexico
             this.memo = parent.memo;
             this.parsersById = parent.parsersById;
             this.doIlrChecks = parent.doIlrChecks;
+            this.Cut = cut;
         }
 
         public static Delegate Compile(IParser parser, CompileFlags flags)
@@ -148,7 +150,7 @@ namespace Lexico
             if ((flags & (CompileFlags.Memoizing | CompileFlags.CheckImmediateLeftRecursion)) != 0) {
                 context.doIlrChecks = true;
             }
-            context.Child(parser, null, context.Result, onSuccess, onFail);
+            context.Child(parser, null, context.Result, onSuccess, onFail, null);
             var block = context.MakeFunctionBlock();
             return Lambda(
                 typeof(Parser<>).MakeGenericType(parser.OutputType),
@@ -171,7 +173,7 @@ namespace Lexico
                 var tmpResult = Parameter(outType.MakeByRefType());
                 var tmpSuccess = Label();
                 var tmpFail = Label();
-                var childContext = new CompileContext(this, child, tmpResult, tmpSuccess, tmpFail, doIlrChecks);
+                var childContext = new CompileContext(this, child, tmpResult, tmpSuccess, tmpFail, doIlrChecks, null);
                 child.Compile(childContext);
 
                 // Set the placeholder to the lambda we just built up
@@ -197,7 +199,7 @@ namespace Lexico
             }
         }
 
-        public void Child(IParser child, string? name, Expression? result, LabelTarget? onSuccess, LabelTarget onFail)
+        public void Child(IParser child, string? name, Expression? result, LabelTarget? onSuccess, LabelTarget onFail, Expression? cut)
         {
             if (recursionTargets.ContainsKey(child))
             {
@@ -214,7 +216,7 @@ namespace Lexico
             var childSuccess = doTrace ? Label() : onSuccess;
             var childFail = (doTrace || memo != null) ? Label() : onFail;
 
-            var childContext = new CompileContext(this, child, result, childSuccess, childFail, false);
+            var childContext = new CompileContext(this, child, result, childSuccess, childFail, false, cut);
             child.Compile(childContext);
             // If recursion became apparent during compilation...
             if (recursionTargets.ContainsKey(child)) {

@@ -79,11 +79,13 @@ namespace Lexico
         public void Compile(ICompileContext context)
         {
             var success = context.Success ?? Label();
+            var cut = context.Cache(Constant(false));
             foreach (var option in options)
             {
                 var savePoint = context.Save();
-                context.Child(option, null, context.Result, success, savePoint);
+                context.Child(option, null, context.Result, success, savePoint, cut);
                 context.Restore(savePoint);
+                context.Append(IfThen(cut, Goto(context.Failure)));
             }
             context.Fail();
             if (context.Success == null) {
@@ -93,5 +95,39 @@ namespace Lexico
         }
 
         public override string ToString() => $"Any {OutputType.Name}";
+    }
+
+    public class CutAttribute : TermAttribute
+    {
+        public override int Priority => 200;
+
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
+        {
+            return new CutParser(child(null));
+        }
+    }
+
+    internal class CutParser : IParser
+    {
+        private readonly IParser previous;
+        public CutParser(IParser previous)
+        {
+            this.previous = previous;
+        }
+
+        public Type OutputType => previous.OutputType;
+
+        public void Compile(ICompileContext context)
+        {
+            if (context.Cut == null) {
+                previous.Compile(context);
+            } else {
+                var success = Label();
+                context.Child(previous, null, context.Result, success, context.Failure);
+                context.Append(Label(success));
+                context.Append(Assign(context.Cut, Constant(true)));
+                context.Succeed();
+            }
+        }
     }
 }
