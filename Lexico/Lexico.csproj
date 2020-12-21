@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     
     <PackageId>Lexico</PackageId>
-    <Version>1.0.0-alpha4</Version>
+    <Version>1.0.0-alpha5</Version>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Authors>hamish-milne, Craig-J</Authors>
     <PackageDescription>Type-based recursive descent parser for .NET. Lexico generates the parse grammar using attributes and produces object instances when applied.</PackageDescription>

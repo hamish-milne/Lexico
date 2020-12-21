@@ -186,7 +186,7 @@ namespace Lexico
     /// <summary>
     /// A Trace that writes directly and completely to the console (with colours)
     /// </summary>
-    public sealed class ConsoleTrace : DeveloperTrace
+    public sealed class ConsoleDeveloperTrace : DeveloperTrace
     {
         protected override void WriteLine(bool isPop, bool success, string str)
         {
@@ -217,7 +217,7 @@ namespace Lexico
             IgnoreOptionalWhitespace
         };
 
-        protected UserTrace(Action<string> onError, List<Predicate<IParser>>? ignoreRules = null)
+        public UserTrace(Action<string> onError, List<Predicate<IParser>>? ignoreRules = null)
         {
             _onError = onError;
             _parserIgnoreRules = ignoreRules ?? DefaultIgnoreRules.ToList();
