@@ -131,6 +131,7 @@ namespace Lexico
             context.Append(Goto(loop));
             context.Restore(loopFail);
             context.Append(Label(loopEnd));
+            context.Release(loopFail);
 
             // Loop ends; decide whether to succeed or not
             if (Min.HasValue) {
@@ -141,6 +142,9 @@ namespace Lexico
             } else {
                 context.Succeed(list ?? Empty());
             }
+            context.Release(list);
+            context.Release(output);
+            context.Release(count);
         }
 
         public override string ToString() => $"[{Element}...]";

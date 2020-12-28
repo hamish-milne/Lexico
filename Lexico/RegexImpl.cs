@@ -45,6 +45,7 @@ namespace Lexico.RegexImpl
             var start = context.Cache(context.Position);
             context.Child(inner, null, null, null, context.Failure);
             context.Succeed(Call(context.String, nameof(string.Substring), Type.EmptyTypes, start, Subtract(context.Position, start)));
+            context.Release(start);
         }
     }
 
@@ -87,6 +88,7 @@ namespace Lexico.RegexImpl
             {
                 context.Succeed();
             }
+            context.Release(sb);
         }
 
         public override string ToString() => "Regex sequence";

@@ -26,6 +26,7 @@ namespace Lexico
             context.Child(inner, null, context.Result, context.Failure, savePoint);
             context.Restore(savePoint);
             context.Succeed();
+            context.Release(savePoint);
         }
     }
 }

@@ -8,6 +8,9 @@ namespace Lexico
     /// </summary>
     public static class Lexico
     {
+
+        public static int Stack = 0;
+
         /// <summary>
         /// Parses a value of the given Type (T) from an input string.
         /// Throws a FormatException if the parsing fails.

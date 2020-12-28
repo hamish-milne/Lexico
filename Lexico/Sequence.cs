@@ -117,6 +117,8 @@ namespace Lexico
                 context.Append(IfThen(LessThanOrEqual(context.Position, currentPos), Goto(context.Failure)));
             }
             context.Succeed(obj!);
+            context.Release(currentPos);
+            context.Release(obj);
         }
 
         private static bool IsPrivate(MemberInfo member) => member switch

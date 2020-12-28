@@ -6,6 +6,7 @@ namespace Lexico
     public interface ICompileContext
     {
         LabelTarget Save();
+        void Release(LabelTarget target);
         void Restore(LabelTarget savePoint);
         LabelTarget? Success { get; }
         LabelTarget Failure { get; }
@@ -14,6 +15,7 @@ namespace Lexico
         Expression Length { get; }
         Expression? Cut { get; }
         Expression Cache(Expression value);
+        void Release(Expression variable);
         Expression String { get; }
         Expression UserObject { get; }
         void Append(Expression statement);

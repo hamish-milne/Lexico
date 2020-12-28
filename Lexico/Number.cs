@@ -105,6 +105,7 @@ namespace Lexico
             var match = context.Cache(Default(typeof(string)));
             context.Child(regex, null, match, null, context.Failure);
             context.Succeed(Call(parseMethod, match, Constant(styles)));
+            context.Release(match);
         }
 
         public override string ToString() => $"Number ({OutputType.Name})";
