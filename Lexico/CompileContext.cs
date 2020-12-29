@@ -30,8 +30,8 @@ namespace Lexico
         private readonly CompileContext topLevel;
         private readonly IParser? source;
         private readonly CompileContext? parent;
-        private readonly Expression ilrStack = null!;
-        private readonly Expression ilrPos = null!;
+        private readonly Expression? ilrStack;
+        private readonly Expression? ilrPos;
         private readonly Expression? byRefPosition;
         private readonly Expression? byRefResult;
         private readonly Expression? trace;
@@ -52,7 +52,7 @@ namespace Lexico
             var v = variablePool
                 .FirstOrDefault(x => x.Type == value.Type);
             if (v == null) {
-                v = Variable(value.Type, new System.Diagnostics.StackTrace(1, true).GetFrame(0).ToString());
+                v = Variable(value.Type);
             } else {
                 variablePool.Remove(v);
             }
@@ -61,7 +61,7 @@ namespace Lexico
             return v;
         }
 
-        public void Release(Expression variable)
+        public void Release(Expression? variable)
         {
             if (variables.Remove(variable as ParameterExpression)) {
                 variablePool.Add((ParameterExpression)variable);
@@ -178,8 +178,6 @@ namespace Lexico
             ).Compile();
         }
 
-        private static readonly Expression stackDbg = Field(null, typeof(Lexico).GetField(nameof(Lexico.Stack)));
-
         public void Recursive(IParser child)
         {
             if (!recursionTargets.ContainsKey(child))
@@ -211,9 +209,7 @@ namespace Lexico
         {
             var recurse = recursionTargets[child];
             var tmp = Cache(Default(GetOutputType(child)));
-            Append(PostIncrementAssign(stackDbg));
             var r = Cache(Invoke(recurse, tmp));
-            Append(PostDecrementAssign(stackDbg));
             statements.Add(IfThen(Not(r), Goto(onFail)));
             if (result != null && child.OutputType != typeof(void)) {
                 Append(Assign(result, tmp));
@@ -243,7 +239,7 @@ namespace Lexico
             var childFail = (doTrace || memo != null) ? Label() : onFail;
 
             var startPos = (memo != null || doTrace) ? Cache(Position) : null;
-            var startIlr = memo?.Type != typeof(AggressiveMemo) ? Cache(ilrStack) : null;
+            var startIlr = ilrStack != null ? Cache(ilrStack) : null;
 
             var childContext = new CompileContext(this, child, result, childSuccess, childFail, false, cut, true);
             child.Compile(childContext);
@@ -434,7 +430,7 @@ namespace Lexico
         {
             var restore = Label();
             if (enableIlrCheck) {
-                savePoints.Add(restore, (Cache(Position), Cache(ilrStack), Cache(ilrPos)));
+                savePoints.Add(restore, (Cache(Position), Cache(ilrStack!), Cache(ilrPos!)));
             } else {
                 savePoints.Add(restore, (Cache(Position), null, null));
             }
