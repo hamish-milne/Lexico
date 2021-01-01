@@ -14,9 +14,9 @@ namespace Lexico
         public static IParser Instance { get; } = new LocationWriter();
         public Type OutputType => typeof(int);
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
-            context.Succeed(context.Position);
+            context.Succeed(context.Emitter.Position);
         }
     }
 }

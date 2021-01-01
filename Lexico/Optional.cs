@@ -1,7 +1,5 @@
 using System.Reflection;
 using System;
-using static System.AttributeTargets;
-using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
@@ -47,17 +45,17 @@ namespace Lexico
 
         public Type OutputType => child.OutputType; // TODO: Nullable<T> here?
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
+            var e = context.Emitter;
             var savePoint = context.Save();
-            var skip = context.Success == null ? Label() : null;
-            context.Child(child, null, context.Result, context.Success ?? skip, savePoint);
+            var skip = context.Success == null ? e.Label() : null;
+            context.Child(child, null, context.Result, context.Success ?? skip, savePoint.label);
             context.Restore(savePoint);
             if (skip != null) {
-                context.Append(Label(skip));
+                e.Mark(skip);
             }
             context.Succeed();
-            context.Release(savePoint);
         }
 
         public override string ToString() => $"{child}?";

@@ -14,9 +14,10 @@ namespace Lexico
         public static IParser Instance { get; } = new UserObjectWriter();
         public Type OutputType => typeof(object);
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
-            context.Succeed(context.UserObject);
+            context.Succeed();
+            // context.Succeed(context.UserObject);
         }
     }
 }

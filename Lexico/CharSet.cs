@@ -1,6 +1,5 @@
 using System.Linq;
 using System;
-using static System.Linq.Expressions.Expression;
 using System.Reflection;
 using System.Collections.Generic;
 
@@ -152,24 +151,26 @@ namespace Lexico
 
         public Type OutputType => typeof(char);
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
-            context.Append(IfThen(GreaterThanOrEqual(context.Position, context.Length), Goto(context.Failure)));
-            var success = Label();
+            var e = context.Emitter;
+            context.RequireSymbols(1);
+            var success = e.Label();
+            var c = e.Peek(0);
             foreach (var (start, end) in ranges) {
                 if (start == end) {
-                    context.Append(IfThen(Equal(context.Peek(0), Constant(start)), Goto(success)));
+                    e.Compare(c, CompareOp.Equal, start, success);
                 } else {
-                    context.Append(IfThen(And(
-                        GreaterThanOrEqual(context.Peek(0), Constant(start)),
-                        LessThanOrEqual(context.Peek(0), Constant(end))
-                    ), Goto(success)));
+                    var skip = e.Label();
+                    e.Compare(c, CompareOp.Less, start, skip);
+                    e.Compare(c, CompareOp.LessOrEqual, end, success);
+                    e.Mark(skip);
                 }
             }
-            context.Fail();
-            context.Append(Label(success));
+            e.Jump(context.Failure);
+            e.Mark(success);
             context.Advance(1);
-            context.Succeed(context.Peek(-1));
+            context.Succeed(c);
         }
 
         // TODO: Use single chars for ToString

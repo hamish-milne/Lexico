@@ -41,7 +41,7 @@ namespace Lexico
         public virtual bool AddDefault(MemberInfo member) => false;
     }
 
-    internal class UnaryParser : IParser
+    internal class RecursiveParser : IParser
     {
         private IParser? inner;
         public IParser Inner => inner ?? throw new InvalidOperationException("Circular parser dependency");
@@ -55,9 +55,9 @@ namespace Lexico
 
         public Type OutputType => Inner.OutputType;
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
-            context.Recursive(Inner);
+            context.GetFeature<Recursive>().CallFromPlaceholder(Inner, context);
         }
 
         public override string ToString() => "Unary";
@@ -82,6 +82,9 @@ namespace Lexico
 
         private static readonly Dictionary<MemberInfo, IParser> cache
             = new Dictionary<MemberInfo, IParser>();
+        private static readonly HashSet<IParser> isRecursive = new HashSet<IParser>();
+
+        public static bool IsRecursive(IParser parser) => isRecursive.Contains(parser);
 
         public static IParser GetParser(MemberInfo member)
         {
@@ -89,7 +92,7 @@ namespace Lexico
             lock (parserStack) {
                 if (!cache.TryGetValue(member, out var parser)) {
                     if (parserStack.Contains(member)) {
-                        var placeholder = new UnaryParser();
+                        var placeholder = new RecursiveParser();
                         cache.Add(member, placeholder);
                         return placeholder;
                     } else if (member is Type t && t.IsGenericType && t.GetGenericTypeDefinition() == typeof(List<>)) {
@@ -99,8 +102,9 @@ namespace Lexico
                         parserStack.Push(member);
                         parser = GetParserUncached(member);
                         parserStack.Pop();
-                        if (cache.TryGetValue(member, out var tmp) && tmp is UnaryParser placeholder) {
+                        if (cache.TryGetValue(member, out var tmp) && tmp is RecursiveParser placeholder) {
                             placeholder.Set(parser);
+                            isRecursive.Add(parser);
                         }
                         cache[member] = parser;
                     }

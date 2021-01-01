@@ -3,8 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using static System.Reflection.BindingFlags;
-using static System.Linq.Expressions.Expression;
-using System.Linq.Expressions;
 
 namespace Lexico
 {
@@ -81,24 +79,17 @@ namespace Lexico
 
         public Type OutputType => Type;
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
-            Expression currentPos = null!;
-            if (CheckZeroLength) {
-                currentPos = context.Cache(context.Position);
-            }
+            var e = context.Emitter;
             // Get the current value. If it's not the right type, make a new one.
             // If we're not saving the value, no need to do this
-            Expression? obj = null;
-            if (context.Result != null)
+            if (context.Result != null && !e.TypeOf(context.Result).IsValueType && context.CanWriteResult)
             {
-                if (context.Result.CanWrite()) {
-                    obj = context.Cache(
-                        Condition(TypeIs(context.Result, Type), Convert(context.Result, Type), New(Type))
-                    );
-                } else {
-                    obj = context.Result;
-                }
+                var skip = e.Label();
+                e.Compare(context.Result, CompareOp.NotEqual, e.Default(typeof(object)), skip);
+                e.Copy(context.Result, e.Create(OutputType));
+                e.Mark(skip);
             }
             bool first = true;
             foreach (var (member, parser) in members)
@@ -109,16 +100,20 @@ namespace Lexico
                 }
                 first = false;
                 // Match the item and, if we're saving the value, write it back to the member in question
-                context.Child(parser, member?.Name,
-                    member == null || obj == null ? null : MakeMemberAccess(obj, member),
-                    null, context.Failure);
+                if (context.Result != null && member != null) {
+                    var mValue = e.Load(context.Result, member);
+                    context.Child(parser, member.Name, mValue, null, context.Failure, IsWritable(member));
+                    if (IsWritable(member)) {
+                        e.Store(context.Result, member, mValue);
+                    }
+                } else {
+                    context.Child(parser, null, null, null, context.Failure);
+                }
             }
             if (CheckZeroLength) {
-                context.Append(IfThen(LessThanOrEqual(context.Position, currentPos), Goto(context.Failure)));
+                e.Compare(context.GetFeature<StartPosition>().Get(), CompareOp.Equal, e.Position, context.Failure);
             }
-            context.Succeed(obj!);
-            context.Release(currentPos);
-            context.Release(obj);
+            context.Succeed();
         }
 
         private static bool IsPrivate(MemberInfo member) => member switch
@@ -128,22 +123,12 @@ namespace Lexico
             _ => throw new ArgumentException($"{member} cannot determine member access level")
         };
 
-        public override string ToString() => Type.Name;
-    }
+        private static bool IsWritable(MemberInfo member) => member switch {
+            FieldInfo f => !f.IsInitOnly,
+            PropertyInfo p => p.CanWrite,
+            _ => false
+        };
 
-    public static class ExpressionExtensions
-    {
-        public static bool CanWrite(this Expression expression)
-        {
-            return expression switch {
-                ParameterExpression _ => true,
-                MemberExpression m => m.Member switch {
-                    FieldInfo f => !f.IsInitOnly,
-                    PropertyInfo p => p.CanWrite,
-                    _ => false
-                },
-                _ => false
-            };
-        }
+        public override string ToString() => Type.Name;
     }
 }

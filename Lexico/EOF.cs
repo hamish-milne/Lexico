@@ -1,7 +1,6 @@
 using System;
 using System.Reflection;
 using static System.AttributeTargets;
-using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
@@ -35,10 +34,11 @@ namespace Lexico
 
         public Type OutputType => typeof(void);
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
-            context.Append(IfThen(LessThan(context.Position, context.Length), Goto(context.Failure)));
-            context.Succeed(Empty());
+            var e = context.Emitter;
+            e.Compare(e.Position, CompareOp.Less, e.Length, context.Failure);
+            context.Succeed();
         }
     }
 
@@ -68,10 +68,11 @@ namespace Lexico
 
         public Type OutputType => typeof(void);
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
-            context.Append(IfThen(GreaterThan(context.Position, Constant(0)), Goto(context.Failure)));
-            context.Succeed(Empty());
+            var e = context.Emitter;
+            e.Compare(e.Position, CompareOp.Greater, e.Const(0), context.Failure);
+            context.Succeed();
         }
     } 
 }

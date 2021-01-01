@@ -3,8 +3,6 @@ using System.Reflection;
 using System.Collections;
 using System;
 using System.Collections.Generic;
-using static System.Linq.Expressions.Expression;
-using System.Linq.Expressions;
 
 namespace Lexico
 {
@@ -68,83 +66,81 @@ namespace Lexico
 
         public Type OutputType { get; }
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
-            Expression? list = null;
+            var e = context.Emitter;
+            Var? list = null;
             if (context.Result != null) {
-                if (context.Result.CanWrite()) {
-                    list = context.Cache(OutputType switch {
-                        {} when OutputType == typeof(string) => New(typeof(StringBuilder)),
-                        {IsArray: true} => New(typeof(List<>).MakeGenericType(Element.OutputType)),
-                        _ => Condition(Equal(context.Result, Constant(null)), New(OutputType), context.Result)
-                    });
+                if (context.CanWriteResult) {
+                    if (OutputType == typeof(string)) {
+                        list = e.Create(typeof(StringBuilder));
+                    } else if (OutputType.IsArray) {
+                        list = e.Create(typeof(List<>).MakeGenericType(Element.OutputType));
+                    } else {
+                        list = context.Result;
+                        var skip = e.Label();
+                        e.Compare(list, CompareOp.NotEqual, e.Default(typeof(object)), skip);
+                        e.Copy(list, e.Create(OutputType));
+                        e.Mark(skip);
+                    }
                 } else {
                     list = context.Result;
                 }
             }
             if (list != null && OutputType != typeof(string)) {
-                context.Append(Call(list, nameof(IList.Clear), Type.EmptyTypes));
+                e.Call(list, nameof(IList.Clear));
             }
             // Make a var to store the result before adding to the list
-            var output = context.Result == null ? null : context.Cache(Default(Element.OutputType));
-            var count = context.Cache(Constant(0));
+            var output = context.Result == null ? null : e.Var(null, Element.OutputType);
+            var count = e.Var(0, typeof(int));
             void AddToList() {
                 if (list != null) {
                     if (OutputType == typeof(string)) {
-                        // Fix method finding
-                        var o = output!;
-                        if (o.Type == typeof(string)) {
-                            o = Convert(o, typeof(object));
-                        }
-                        context.Append(Call(list, nameof(StringBuilder.Append), Type.EmptyTypes, o));
+                        e.Call(list, nameof(StringBuilder.Append), output!);
                     } else {
-                        context.Append(Call(list, nameof(IList.Add), Type.EmptyTypes, output));
+                        e.Call(list, nameof(IList.Add), output!);
                     }
                 }
                 if (Min.HasValue || Max.HasValue) {
-                    context.Append(PreIncrementAssign(count));
+                    e.Increment(count, 1);
                 }
             }
 
             // Begin the loop
-            var loop = Label();
-            var loopEnd = Label();
+            var loop = e.Label();
+            var loopEnd = e.Label();
 
             // First element
             context.Child(Element, null, output, null, loopEnd);
             AddToList();
 
-            context.Append(Label(loop));
+            e.Mark(loop);
             if (output != null) {
-                context.Append(Assign(output, Default(Element.OutputType)));
+                e.Copy(output, e.Default(Element.OutputType));
             }
             if (Max.HasValue) {
-                context.Append(IfThen(GreaterThanOrEqual(count, Constant(Max.Value)), Goto(loopEnd)));
+                e.Compare(count, CompareOp.GreaterOrEqual, e.Const(Max.Value), loopEnd);
             }
             // Subsequent elements can fail
             var loopFail = context.Save();
             if (separator != null) {
-                context.Child(separator, "(Separator)", null, null, loopFail);
+                context.Child(separator, "(Separator)", null, null, loopFail.label);
             }
-            context.Child(Element, null, output, null, loopFail);
+            context.Child(Element, null, output, null, loopFail.label);
             AddToList();
-            context.Append(Goto(loop));
+            e.Jump(loop);
             context.Restore(loopFail);
-            context.Append(Label(loopEnd));
-            context.Release(loopFail);
+            e.Mark(loopEnd);
 
             // Loop ends; decide whether to succeed or not
             if (Min.HasValue) {
-                context.Append(IfThen(LessThan(count, Constant(Min.Value)), Goto(context.Failure)));
+                e.Compare(count, CompareOp.LessOrEqual, e.Const(Min.Value), context.Failure);
             }
             if (OutputType == typeof(string) && list != null) {
-                context.Succeed(Call(list, nameof(StringBuilder.ToString), Type.EmptyTypes));
+                context.Succeed(e.Call(list, nameof(StringBuilder.ToString)));
             } else {
-                context.Succeed(list ?? Empty());
+                context.Succeed(list);
             }
-            context.Release(list);
-            context.Release(output);
-            context.Release(count);
         }
 
         public override string ToString() => $"[{Element}...]";

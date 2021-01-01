@@ -2,7 +2,6 @@ using System.Reflection;
 using System;
 using static System.Reflection.BindingFlags;
 using static System.AttributeTargets;
-using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
@@ -66,15 +65,15 @@ namespace Lexico
 
         public Type OutputType => typeof(string);
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
-            context.Append(IfThen(LessThan(Subtract(context.Length, context.Position), Constant(literal.Length)), Goto(context.Failure)));
+            var e = context.Emitter;
+            context.RequireSymbols(literal.Length);
             for (int i = 0; i < literal.Length; i++) {
-                var c = Constant(literal[i]);
-                context.Append(IfThen(NotEqual(c, context.Peek(i)), Goto(context.Failure)));
+                e.Compare(e.Peek(i), CompareOp.Equal, literal[i], context.Failure);
             }
             context.Advance(literal.Length);
-            context.Succeed(Constant(literal));
+            context.Succeed(e.Const(literal));
         }
 
         public override string ToString() => $"`{literal}`";

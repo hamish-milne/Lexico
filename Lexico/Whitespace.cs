@@ -1,8 +1,6 @@
-using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using System;
 using System.Reflection;
-using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
@@ -32,25 +30,34 @@ namespace Lexico
 
         public Type OutputType => typeof(void);
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
+            var e = context.Emitter;
+            var space = e.Const(' ');
+            var nl = e.Const('\n');
             // TODO: Opt-in for fast whitespace
-            Expression test = LessThanOrEqual(context.Peek(0), Constant(' '));
+            Action<Label> multilineTest = label => {
+                e.Compare(e.Position, CompareOp.GreaterOrEqual, e.Length, label);
+                e.Compare(e.Peek(0), CompareOp.GreaterOrEqual, space, label);
+            };
+            Action<Label> test;
+            if (multiline) {
+                test = multilineTest;
+            } else {
+                test = label => { multilineTest(label); e.Compare(e.Peek(0), CompareOp.Equal, nl, label); };
+            }
             // var isWhiteSpace = new Func<char, bool>(Char.IsWhiteSpace).Method;
             // Expression test = Call(isWhiteSpace, context.Peek(0));
-            if (!multiline) {
-                test = And(NotEqual(context.Peek(0), Constant('\n')), test);
-            }
-            context.Append(IfThen(GreaterThanOrEqual(context.Position, context.Length), Goto(context.Failure)));
-            context.Append(IfThen(Not(test), Goto(context.Failure)));
-            var loop = Label();
-            var loopEnd = Label();
-            context.Append(Label(loop));
+            
+            test(context.Failure);
+            var loop = e.Label();
+            var loopEnd = context.Success ?? e.Label();
+            e.Mark(loop);
             context.Advance(1);
-            context.Append(IfThen(GreaterThanOrEqual(context.Position, context.Length), Goto(loopEnd)));
-            context.Append(IfThen(test, Goto(loop)));
-            context.Append(Label(loopEnd));
-            context.Succeed();
+            test(loopEnd);
+            if (context.Success == null) {
+                e.Mark(loopEnd);
+            }
         }
 
         public override string ToString() => "Whitespace";

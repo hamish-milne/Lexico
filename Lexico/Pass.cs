@@ -16,7 +16,7 @@ namespace Lexico
         public static IParser Instance { get; } = new Pass();
         public Type OutputType => typeof(void);
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
             context.Succeed();
         }

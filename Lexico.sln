@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lexico.Test", "Lexico.Test\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lexico.Benchmarks", "Lexico.Benchmarks\Lexico.Benchmarks.csproj", "{D306415C-BA2A-4296-88C9-232CC88CD471}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lexico.Runtime", "Lexico.Runtime\Lexico.Runtime.csproj", "{C248821B-047C-49D8-85BA-307571620A45}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -58,5 +60,17 @@ Global
 		{D306415C-BA2A-4296-88C9-232CC88CD471}.Release|x64.Build.0 = Release|Any CPU
 		{D306415C-BA2A-4296-88C9-232CC88CD471}.Release|x86.ActiveCfg = Release|Any CPU
 		{D306415C-BA2A-4296-88C9-232CC88CD471}.Release|x86.Build.0 = Release|Any CPU
+		{C248821B-047C-49D8-85BA-307571620A45}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C248821B-047C-49D8-85BA-307571620A45}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C248821B-047C-49D8-85BA-307571620A45}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C248821B-047C-49D8-85BA-307571620A45}.Debug|x64.Build.0 = Debug|Any CPU
+		{C248821B-047C-49D8-85BA-307571620A45}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C248821B-047C-49D8-85BA-307571620A45}.Debug|x86.Build.0 = Debug|Any CPU
+		{C248821B-047C-49D8-85BA-307571620A45}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C248821B-047C-49D8-85BA-307571620A45}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C248821B-047C-49D8-85BA-307571620A45}.Release|x64.ActiveCfg = Release|Any CPU
+		{C248821B-047C-49D8-85BA-307571620A45}.Release|x64.Build.0 = Release|Any CPU
+		{C248821B-047C-49D8-85BA-307571620A45}.Release|x86.ActiveCfg = Release|Any CPU
+		{C248821B-047C-49D8-85BA-307571620A45}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

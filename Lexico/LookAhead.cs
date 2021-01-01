@@ -19,13 +19,12 @@ namespace Lexico
         private readonly IParser inner;
         public Type OutputType => typeof(void);
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
             var savePoint = context.Save();
-            context.Child(inner, null, context.Result, savePoint, context.Failure);
+            context.Child(inner, null, context.Result, savePoint.label, context.Failure);
             context.Restore(savePoint);
             context.Succeed();
-            context.Release(savePoint);
         }
     }
 }

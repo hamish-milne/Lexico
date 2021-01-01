@@ -81,7 +81,7 @@ namespace Lexico
 
         public Type OutputType => inner.OutputType;
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
             if (prefix != null) {
                 context.Child(prefix, "(Prefix)", null, null, context.Failure);

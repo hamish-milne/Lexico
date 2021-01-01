@@ -1,8 +1,13 @@
-﻿using System.Collections.Concurrent;
-using System;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Lexico
 {
+    public interface Entry
+    {
+        bool TryParse(IParser parser, IEnumerable<Feature> features, string input, out object output);
+    }
+
     /// <summary>
     /// Simplified parsing API
     /// </summary>
@@ -37,33 +42,23 @@ namespace Lexico
         /// <returns>True if the parsing succeeded, otherwise false</returns>
         public static bool TryParse<T>(string str, out T output, ITrace? trace = null, object? userObject = null)
         {
-            var compiled = Compile(typeof(T), trace != null);
-            int position = 0;
-            output = default!;
-            return ((Parser<T>)compiled)(str, ref position, ref output, trace!, userObject);
-        }
-
-        private static Delegate Compile(Type type, bool hasTrace)
-        {
-            var key = (type, hasTrace);
-            if (!compilerCache.TryGetValue(key, out var compiled)) {
-                var parser = ParserCache.GetParser(type);
-                compiled = CompileContext.Compile(parser, hasTrace ? CompileFlags.Trace : CompileFlags.None);
-                compilerCache.TryAdd(key, compiled);
+            var result = TryParse(str, typeof(T), out var objOut, trace!, userObject);
+            if (result) {
+                output = (T)objOut;
+            } else {
+                output = default(T)!;
             }
-            return compiled;
-        }
-
-        public static bool TryParse(string str, Type outputType, out object output, ITrace? trace = null, object? userObject = null)
-        {
-            var compiled = Compile(outputType, trace != null);
-            var args = new object[]{str, 0, null!, trace!, userObject!};
-            var result = (bool)compiled.DynamicInvoke(args);
-            output = args[2];
             return result;
         }
 
-        private static readonly ConcurrentDictionary<(Type, bool), Delegate> compilerCache
-            = new ConcurrentDictionary<(Type, bool), Delegate>();
+        private static readonly Entry entry = new Runtime();
+
+        public static bool TryParse(string str, Type outputType, out object output, ITrace? trace = null, object? userObject = null)
+        {
+            return entry.TryParse(ParserCache.GetParser(outputType), new Feature[]{
+                new StartPosition(),
+                new Recursive()
+            }, str, out output);
+        }
     }
 }

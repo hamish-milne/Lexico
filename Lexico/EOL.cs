@@ -1,7 +1,5 @@
 using System;
-using System.Linq.Expressions;
 using System.Reflection;
-using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
@@ -27,23 +25,20 @@ namespace Lexico
 
         public Type OutputType => typeof(void);
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
-            var breakTarget = Label();
-            var fail = Goto(context.Failure);
-            var succeed = Goto(breakTarget);
-            context.Append(IfThen(GreaterThanOrEqual(context.Position, context.Length), succeed));
-            context.Append(Switch(context.Peek(0), fail,
-                SwitchCase(Block(AddAssign(context.Position, Constant(1)), succeed), Constant('\n')),
-                SwitchCase(IfThenElse(And(
-                        LessThan(Add(Constant(1), context.Position), context.Length),
-                        Equal(context.Peek(1), Constant('\n'))
-                    ),
-                    Block(AddAssign(context.Position, Constant(2)), succeed),
-                    fail), Constant('\r'))
-            ));
-            context.Append(Label(breakTarget));
-            context.Succeed(Empty());
+            var e = context.Emitter;
+            var success = e.Label();
+            context.RequireSymbols(1);
+            e.Compare(e.Peek(0), CompareOp.Equal, '\n', success);
+            e.Compare(e.Peek(0), CompareOp.NotEqual, '\r', context.Failure);
+            context.Advance(1);
+            e.Compare(e.GetSymbolsRemaining(), CompareOp.LessOrEqual, 0, success);
+            e.Compare(e.Peek(0), CompareOp.NotEqual, '\n', success);
+            context.Advance(1);
+            e.Mark(success);
+            context.Advance(1);
+            context.Succeed();
         }
     }
 }

@@ -1,5 +1,4 @@
 using System;
-using static System.Linq.Expressions.Expression;
 using System.Reflection;
 
 namespace Lexico
@@ -21,11 +20,11 @@ namespace Lexico
 
         public Type OutputType => typeof(char);
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
-            context.Append(IfThen(GreaterThanOrEqual(context.Position, context.Length), Goto(context.Failure)));
+            context.RequireSymbols(1);
             context.Advance(1);
-            context.Succeed(context.Peek(-1));
+            context.Succeed(context.Emitter.Peek(-1));
         }
     }
 }

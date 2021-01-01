@@ -1,6 +1,4 @@
 using System;
-using System.Linq.Expressions;
-using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
@@ -10,6 +8,6 @@ namespace Lexico
     public interface IParser
     {
         Type OutputType { get; }
-        void Compile(ICompileContext context);
+        void Compile(Context context);
     }
 }

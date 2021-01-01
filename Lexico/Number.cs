@@ -5,7 +5,6 @@ using System.Globalization;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using static System.Globalization.NumberStyles;
-using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
@@ -100,12 +99,12 @@ namespace Lexico
 
         public Type OutputType => parseMethod.DeclaringType;
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
-            var match = context.Cache(Default(typeof(string)));
+            var e = context.Emitter;
+            var match = e.Var(null!, typeof(string));
             context.Child(regex, null, match, null, context.Failure);
-            context.Succeed(Call(parseMethod, match, Constant(styles)));
-            context.Release(match);
+            context.Succeed(e.Call(null, parseMethod, match, e.Const(styles)));
         }
 
         public override string ToString() => $"Number ({OutputType.Name})";

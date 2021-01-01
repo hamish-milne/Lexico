@@ -1,11 +1,8 @@
 #pragma warning disable CS8618,IDE0044,IDE0051,CS0169,CS0649
-using System.Linq.Expressions;
-using System.Text;
 using System;
 using System.Linq;
 using System.Globalization;
 using System.Collections.Generic;
-using static System.Linq.Expressions.Expression;
 
 namespace Lexico.RegexImpl
 {
@@ -40,55 +37,37 @@ namespace Lexico.RegexImpl
 
         public Type OutputType => typeof(string);
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
-            var start = context.Cache(context.Position);
+            var e = context.Emitter;
+            var start = context.GetFeature<StartPosition>().Get();
             context.Child(inner, null, null, null, context.Failure);
-            context.Succeed(Call(context.String, nameof(string.Substring), Type.EmptyTypes, start, Subtract(context.Position, start)));
-            context.Release(start);
+            if (context.Result != null) {
+                context.Succeed(e.Call(e.Sequence, nameof(string.Substring), start, e.Difference(e.Position, start)));
+            } else {
+                context.Succeed();
+            }
         }
     }
 
-    public class ConcatParser : IParser
+    class ConcatParser : IParser
     {
         public ConcatParser(params IParser[] children)
         {
             this.children = children;
         }
 
-        public Type OutputType => typeof(string);
+        public Type OutputType => typeof(void);
 
         private readonly IParser[] children;
 
-        public void Compile(ICompileContext context)
+        public void Compile(Context context)
         {
-            Expression? sb = null;
-            if (context.Result != null)
-            {
-                sb = context.Cache(New(typeof(StringBuilder)));
-            }
             foreach (var c in children)
             {
-                Expression? output = null;
-                if (sb != null)
-                {
-                    output = context.Cache(Default(c.OutputType == typeof(char) ? typeof(char?) : typeof(string)));
-                }
-                context.Child(c, null, output, null, context.Failure);
-                if (sb != null)
-                {
-                    context.Append(Call(sb, nameof(StringBuilder.Append), Type.EmptyTypes, Convert(output, typeof(object))));
-                }
+                context.Child(c, null, null, null, context.Failure);
             }
-            if (sb != null)
-            {
-                context.Succeed(Call(sb, nameof(StringBuilder.ToString), Type.EmptyTypes));
-            }
-            else
-            {
-                context.Succeed();
-            }
-            context.Release(sb);
+            context.Succeed();
         }
 
         public override string ToString() => "Regex sequence";
