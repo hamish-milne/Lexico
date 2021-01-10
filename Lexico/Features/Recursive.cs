@@ -5,14 +5,13 @@ namespace Lexico
 {
     class Recursive : Feature
     {
-        public Type[] DependsOn => Array.Empty<Type>();
-
         private readonly Dictionary<IParser, Emitter> programs = new Dictionary<IParser, Emitter>();
 
+        public static bool IsRecursive(IParser parser) => ParserCache.IsRecursive(parser);
 
         public Context Before(IParser parser, Context context)
         {
-            if (ParserCache.IsRecursive(parser) && !programs.ContainsKey(parser)) {
+            if (IsRecursive(parser) && !programs.ContainsKey(parser)) {
                 var ctx = context.Emitter.MakeRecursive(parser.OutputType);
                 programs.Add(parser, ctx.Emitter);
                 return ctx;
@@ -23,7 +22,7 @@ namespace Lexico
 
         public void After(IParser parser, Context original, Context modified)
         {
-            if (ParserCache.IsRecursive(parser)) {
+            if (IsRecursive(parser)) {
                 original.Emitter.CallRecursive(modified.Emitter, original.Result, original.Success, original.Failure);
             }
         }

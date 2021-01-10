@@ -156,7 +156,7 @@ namespace Lexico
             var e = context.Emitter;
             context.RequireSymbols(1);
             var success = e.Label();
-            var c = e.Peek(0);
+            var c = context.Peek(0);
             foreach (var (start, end) in ranges) {
                 if (start == end) {
                     e.Compare(c, CompareOp.Equal, start, success);

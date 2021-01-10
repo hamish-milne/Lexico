@@ -30,11 +30,11 @@ namespace Lexico
             var e = context.Emitter;
             var success = e.Label();
             context.RequireSymbols(1);
-            e.Compare(e.Peek(0), CompareOp.Equal, '\n', success);
-            e.Compare(e.Peek(0), CompareOp.NotEqual, '\r', context.Failure);
+            e.Compare(context.Peek(0), CompareOp.Equal, '\n', success);
+            e.Compare(context.Peek(0), CompareOp.NotEqual, '\r', context.Failure);
             context.Advance(1);
-            e.Compare(e.GetSymbolsRemaining(), CompareOp.LessOrEqual, 0, success);
-            e.Compare(e.Peek(0), CompareOp.NotEqual, '\n', success);
+            e.Compare(context.GetSymbolsRemaining(), CompareOp.LessOrEqual, 0, success);
+            e.Compare(context.Peek(0), CompareOp.NotEqual, '\n', success);
             context.Advance(1);
             e.Mark(success);
             context.Advance(1);

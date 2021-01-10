@@ -12,6 +12,10 @@ namespace Lexico
     public abstract class Var {
     }
 
+    public abstract class GlobalVar {
+
+    }
+
     public enum CompareOp {
         Equal,
         NotEqual,
@@ -39,6 +43,9 @@ namespace Lexico
             CanWriteResult = canWriteResult;
         }
 
+        public Var Length => Emitter.GlobalRef(this.GetFeature<String>().Length);
+        public Var Position => Emitter.GlobalRef(this.GetFeature<String>().Position);
+        public Var Sequence => Emitter.GlobalRef(this.GetFeature<String>().Sequence);
         public Var? Result { get; }
         public Label Failure { get; }
         public Label? Success { get; }
@@ -52,28 +59,28 @@ namespace Lexico
     {
         Context Before(IParser parser, Context context);
         void After(IParser parser, Context original, Context modified);
-        Type[] DependsOn { get; }
     }
 
     public interface Emitter
     {
-        Var Length { get; }
-        Var Position { get; }
-        Var Sequence { get; }
         Type TypeOf(Var stackSlot);
         Label Label();
         Var Const(object value, Type type);
         Var Var(object? initial, Type type);
-        void Copy(Var lhs, Var rhs);
+        void Copy(Var dst, Var src);
+        GlobalVar Global(object? initial, Type type);
+        Var GlobalRef(GlobalVar global);
         Var Default(Type type);
         void Set(Var variable, object value);
         void Increment(Var variable, int amount);
         void Jump(Label label);
         void Compare(Var lhs, CompareOp op, Var rhs, Label label);
+        void CheckFlag(Var var, int flag, bool compare, Label label);
+        void SetFlag(Var var, int flag, bool value);
         Var Difference(Var lhs, Var rhs);
         Var Call(Var? obj, MethodBase method, params Var[] arguments);
         void Mark(Label label);
-        Var Peek(int offset);
+        Var Index(Var sequence, Var index);
         Var Load(Var obj, MemberInfo member);
         void Store(Var obj, MemberInfo member, Var value);
         IDisposable Frame();
@@ -87,32 +94,43 @@ namespace Lexico
     {
         public static (Var state, Label label) Save(this Context context)
         {
-            return (context.Emitter.Copy(context.Emitter.Position), context.Emitter.Label());
+            return (context.Emitter.Copy(context.Position), context.Emitter.Label());
         }
 
         public static void Restore(this Context context, (Var, Label) savePoint)
         {
             context.Emitter.Mark(savePoint.Item2);
-            context.Emitter.Copy(savePoint.Item1, context.Emitter.Position);
+            context.Emitter.Copy(savePoint.Item1, context.Position);
+        }
+
+        public static Var Peek(this Context context, int offset)
+        {
+            if (offset == 0) {
+                return context.Emitter.Index(context.Sequence, context.Position);
+            } else {
+                var tmp = context.Emitter.Copy(context.Position);
+                context.Emitter.Increment(tmp, offset);
+                return context.Emitter.Index(context.Sequence, tmp);
+            }
         }
 
         public static void RequireSymbols(this Context context, int count)
         {
             using var _ = context.Emitter.Frame();
             context.Emitter.Compare(
-                context.Emitter.GetSymbolsRemaining(),
+                context.GetSymbolsRemaining(),
                 CompareOp.Less,
                 count,
                 context.Failure);
         }
 
-        public static Var GetSymbolsRemaining(this Emitter emitter) {
-            return emitter.Difference(emitter.Position, emitter.Length);
+        public static Var GetSymbolsRemaining(this Context context) {
+            return context.Emitter.Difference(context.Position, context.Length);
         }
 
         public static void Advance(this Context context, int count)
         {
-            context.Emitter.Increment(context.Emitter.Position, count);
+            context.Emitter.Increment(context.Position, count);
         }
 
         public static void Compare(this Emitter emitter, Var variable, CompareOp op, object value, Label label) {

@@ -4,20 +4,22 @@ namespace Lexico
 {
     class Trace : Feature
     {
-        public Type[] DependsOn => new []{typeof(StartPosition)};
-        readonly Var trace;
+        public GlobalVar TraceObj { get; private set; } = null!;
 
         public Context Before(IParser parser, Context context)
         {
             var e = context.Emitter;
-            e.Call(trace, nameof(ITrace.Push), e.Const(parser), e.Const(context.Name ?? "", typeof(string)));
+            if (TraceObj == null) {
+                TraceObj = e.Global(null, typeof(ITrace));
+            }
+            e.Call(e.GlobalRef(TraceObj), nameof(ITrace.Push), e.Const(parser), e.Const(context.Name ?? "", typeof(string)));
             return new Context(
                 context.Emitter,
                 context.Result ?? e.Var(null, parser.OutputType),
                 context.Emitter.Label(),
                 context.Emitter.Label(),
                 context.Name,
-                context.Features,
+                context.Features, 
                 context.CanWriteResult);
         }
 
@@ -27,13 +29,14 @@ namespace Lexico
             var p = e.Const(parser);
             var startPos = original.GetFeature<StartPosition>().Get();
             e.Mark(modified.Failure);
+            var trace = e.GlobalRef(TraceObj);
             e.Call(trace, nameof(ITrace.Pop), p, e.Const(true), modified.Result!,
-                e.Create(typeof(StringSegment), e.Sequence, startPos, e.Difference(e.Position, startPos))
+                e.Create(typeof(StringSegment), original.Sequence, startPos, e.Difference(original.Position, startPos))
             );
             e.Jump(original.Failure);
             e.Mark(modified.Success!);
             e.Call(trace, nameof(ITrace.Pop), p, e.Const(false), modified.Result!,
-                e.Create(typeof(StringSegment), e.Sequence, startPos, e.Difference(e.Position, startPos))
+                e.Create(typeof(StringSegment), original.Sequence, startPos, e.Difference(original.Position, startPos))
             );
             if (original.Success != null) {
                 e.Jump(original.Success);

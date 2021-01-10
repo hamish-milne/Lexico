@@ -111,7 +111,7 @@ namespace Lexico
                 }
             }
             if (CheckZeroLength) {
-                e.Compare(context.GetFeature<StartPosition>().Get(), CompareOp.Equal, e.Position, context.Failure);
+                e.Compare(context.GetFeature<StartPosition>().Get(), CompareOp.Equal, context.Position, context.Failure);
             }
             context.Succeed();
         }

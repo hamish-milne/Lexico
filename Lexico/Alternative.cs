@@ -46,7 +46,7 @@ namespace Lexico
 
     internal class AlternativeParser : IParser
     {
-        public AlternativeParser(Type baseType, IEnumerable<Type>? optionTypes = null)
+        public AlternativeParser(Type baseType, IEnumerable<Type>? optionTypes = null, IEnumerable<Type>? exclude = null)
         {
             OutputType = baseType;
             if (optionTypes != null)
@@ -62,7 +62,8 @@ namespace Lexico
                 optionTypes = baseType.Assembly.GetTypes().Where(t => (t.IsClass || t.IsValueType) && !t.IsAbstract && baseType.IsAssignableFrom(t));
             }
 
-            options = optionTypes.Select(ParserCache.GetParser).ToArray();
+            var toExclude = new HashSet<Type>(exclude ?? Array.Empty<Type>());
+            options = optionTypes.Where(t => !toExclude.Contains(t)).Select(ParserCache.GetParser).ToArray();
             if (options.Length == 0)
             {
                 throw new ArgumentException($"{baseType} has no concrete options");

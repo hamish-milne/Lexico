@@ -1,4 +1,5 @@
-﻿using System;
+﻿using System.Collections;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -9,15 +10,20 @@ namespace Lexico
     {
         private readonly Dictionary<IParser, Context> cache = new Dictionary<IParser, Context>();
 
-        public bool TryParse(IParser parser, IEnumerable<Feature> features, string input, out object output)
+        public bool TryParse(IParser parser, IEnumerable<Feature> features, string input, out object? output, ITrace? trace, object? userObject)
         {
             if (!cache.TryGetValue(parser, out var ctx)) {
-                ctx = Program.MakeRoot(parser.OutputType, features);
+                ctx = Program.MakeRoot(parser.OutputType, features, null);
                 ctx.CompileWithFeatures(parser);
                 cache.Add(parser, ctx);
             }
-            var pos = 0;
-            return ((Program)ctx.Emitter).Execute(input, ref pos, out output);
+            var vars = ctx.GetFeature<String>();
+            return ((Program)ctx.Emitter).Execute(new Dictionary<GlobalVar, object?> {
+                {vars.Length, input.Length},
+                {vars.Sequence, input},
+                {ctx.GetFeature<Trace>().TraceObj, trace},
+                {ctx.GetFeature<UserObject>().Global, userObject}
+            }, out output);
         }
     }
 
@@ -28,6 +34,16 @@ namespace Lexico
                 this.type = type;
                 this.index = index;
                 this.isConst = isConst;
+            }
+            public readonly int index;
+            public readonly Type type;
+            public readonly bool isConst;
+        }
+
+        class RuntimeGlobal : GlobalVar {
+            public RuntimeGlobal(Type type, int index) {
+                this.type = type;
+                this.index = index;
             }
             public readonly int index;
             public readonly Type type;
@@ -59,8 +75,11 @@ namespace Lexico
             AddImmediate,
             Subtract,
             Subroutine,
-            Peek,
-            Return
+            Return,
+            StringIndex,
+            ListIndex,
+            BitwiseAnd,
+            BitwiseOr
         }
 
         struct Operation {
@@ -70,10 +89,8 @@ namespace Lexico
             public int result;
         }
 
-        private RuntimeVar sequence;
-        private RuntimeVar position;
-        private RuntimeVar length;
-        private RuntimeVar result;
+        private readonly RuntimeVar result;
+        // Set initial stack size to 1; index '0' reserved for null/zero
         private int iStackSize = 1;
         private int oStackSize = 1;
         private readonly List<object?> constants = new List<object?>();
@@ -85,14 +102,19 @@ namespace Lexico
         private readonly Stack<StackFrame> frames = new Stack<StackFrame>();
         private readonly List<RuntimeVar> pool = new List<RuntimeVar>();
         private readonly IEnumerable<Feature> features;
+        private readonly List<RuntimeGlobal> globals;
+        private readonly Dictionary<RuntimeGlobal, RuntimeVar> globalRefsCache = new Dictionary<RuntimeGlobal, RuntimeVar>();
+        private readonly List<(int local, int global, bool isInt)> globalRefs = new List<(int, int, bool)>();
+        private readonly List<int> iGlobals;
+        private readonly List<object?> oGlobals;
 
-        public Program(Type outputType, IEnumerable<Feature> features) {
+        public Program(Type outputType, IEnumerable<Feature> features, Program? parent) {
             Frame();
-            position = Allocate(typeof(int));
-            sequence = Allocate(typeof(string));
-            length = Allocate(typeof(int));
             result = Allocate(outputType);
             this.features = features;
+            globals = parent?.globals ?? new List<RuntimeGlobal>();
+            iGlobals = parent?.iGlobals ?? new List<int>();
+            oGlobals = parent?.oGlobals ?? new List<object?>();
         }
 
         class StackFrame : IDisposable {
@@ -129,18 +151,37 @@ namespace Lexico
         private static bool IsInt(RuntimeVar v) => conversions.ContainsKey(v.type);
         private static bool IsInt(Type t) => conversions.ContainsKey(t);
 
-        public bool Execute(string sequence, ref int position, out object result)
+        public bool Execute(IDictionary<GlobalVar, object?> args, out object? result)
+        {
+            var iGlobals = this.iGlobals.ToArray();
+            var oGlobals = this.oGlobals.ToArray();
+            foreach (var g in globals) {
+                if (args.TryGetValue(g, out var init) && init != null) {
+                    if (IsInt(g.type)) {
+                        iGlobals[g.index] = conversions[g.type].otoi(init);
+                    } else {
+                        oGlobals[g.index] = init;
+                    }
+                }
+            }
+            return Execute(iGlobals, oGlobals, out result);
+        }
+        public bool Execute(int[] iGlobals, object?[] oGlobals, out object? result)
         {
             var last = code.Last();
             var pc = 0;
             var test = false;
             var iValues = new int[iStackSize];
-            var oValues = new object[oStackSize];
+            var oValues = new object?[oStackSize];
             constants.CopyTo(oValues);
-            ref var position1 = ref iValues[this.position.index];
-            position1 = position;
-            iValues[this.length.index] = sequence.Length;
-            oValues[this.sequence.index] = sequence;
+            // Load globals
+            foreach (var (local, global, isInt) in globalRefs) {
+                if (isInt) {
+                    iValues[global] = iGlobals[local];
+                } else {
+                    oValues[global] = oGlobals[local];
+                }
+            }
             while (true)
             {
                 switch (code[pc].opcode) {
@@ -175,7 +216,7 @@ namespace Lexico
                 case OpCode.Call: {
                     var (method, count) = methodTable[code[pc].lhs];
                     var obj = oValues[code[pc].rhs];
-                    var args = new object[count];
+                    var args = new object?[count];
                     for (int i = 0; i < count; i++) {
                         args[i] = oValues[code[pc].rhs + 1 + i];
                     }
@@ -184,7 +225,7 @@ namespace Lexico
                     break;
                 case OpCode.Construct: {
                     var (method, count) = methodTable[code[pc].lhs];
-                    var args = new object[count];
+                    var args = new object?[count];
                     for (int i = 0; i < count; i++) {
                         args[i] = oValues[code[pc].rhs + i];
                     }
@@ -214,23 +255,37 @@ namespace Lexico
                     break;
                 case OpCode.Subroutine:
                     var program = dependencies[code[pc].lhs];
-                    test = program.Execute(sequence, ref position1, out oValues[code[pc].result]);
+                    test = program.Execute(iGlobals, oGlobals, out oValues[code[pc].result]);
                     break;
-                case OpCode.Peek:
-                    iValues[code[pc].result] = sequence[position1 + code[pc].lhs];
+                case OpCode.StringIndex:
+                    iValues[code[pc].result] = ((string)oValues[code[pc].lhs]!)[iValues[code[pc].lhs]];
+                    break;
+                case OpCode.ListIndex:
+                    oValues[code[pc].result] = ((IList)oValues[code[pc].lhs]!)[iValues[code[pc].rhs]];
+                    break;
+                case OpCode.BitwiseAnd:
+                    iValues[code[pc].result] = iValues[code[pc].lhs] & iValues[code[pc].rhs];
+                    break;
+                case OpCode.BitwiseOr:
+                    iValues[code[pc].result] = iValues[code[pc].lhs] | iValues[code[pc].rhs];
                     break;
                 case OpCode.Return:
                     result = oValues[this.result.index];
-                    position = position1;
+                    // Write back globals
+                    foreach (var (local, global, isInt) in globalRefs) {
+                        if (isInt) {
+                            iGlobals[global] = iValues[local];
+                        } else {
+                            oGlobals[global] = oValues[local];
+                        }
+                    }
                     return code[pc].lhs != 0;
+                default:
+                    throw new InvalidOperationException("Invalid opcode");
                 }
                 pc++;
             }
         }
-
-        public Var Position => position;
-        public Var Sequence => sequence;
-        public Var Length => length;
 
         public Var Call(Var? obj, MethodBase method, params Var[] arguments)
         {
@@ -348,6 +403,68 @@ namespace Lexico
             });
         }
 
+        public void SetFlag(Var var, int flag, bool value)
+        {
+            var _var = (RuntimeVar)var;
+            if (!IsInt(_var)) {
+                throw new ArgumentException("Must be an integer");
+            }
+            code.Add(new Operation {
+                opcode = value ? OpCode.BitwiseOr : OpCode.BitwiseAnd,
+                lhs = _var.index,
+                rhs = value ? (1 << flag) : ~(1 << flag),
+                result = _var.index
+            });
+        }
+
+        public void CheckFlag(Var var, int flag, bool compare, Label label)
+        {
+            var _var = (RuntimeVar)var;
+            if (!IsInt(_var)) {
+                throw new ArgumentException("Must be an integer");
+            }
+            var result = Allocate(_var.type);
+            code.Add(new Operation {
+                opcode = OpCode.BitwiseAnd,
+                lhs = _var.index,
+                rhs = (1 << flag),
+                result = result.index
+            });
+            code.Add(new Operation {
+                opcode = OpCode.IntEqual,
+                lhs = result.index,
+                rhs = 0,
+            });
+            code.Add(new Operation {
+                opcode = compare ? OpCode.JumpTrue : OpCode.JumpFalse,
+                result = GetTarget(label)
+            });
+        }
+
+        public GlobalVar Global(object? initial, Type type)
+        {
+            var g = new RuntimeGlobal(type, IsInt(type) ? iGlobals.Count : oGlobals.Count);
+            if (IsInt(type)) {
+                iGlobals.Add(conversions[type].otoi(initial ?? 0));
+            } else {
+                oGlobals.Add(initial);
+            }
+            globals.Add(g);
+            return g;
+        }
+
+        public Var GlobalRef(GlobalVar global)
+        {
+            var _global = (RuntimeGlobal)global;
+            if (globalRefsCache.TryGetValue(_global, out var v)) {
+                return v;
+            }
+            var localVar = Allocate(_global.type, frames.First());
+            globalRefs.Add((localVar.index, _global.index, IsInt(localVar)));
+            globalRefsCache.Add(_global, localVar);
+            return localVar;
+        }
+
         public Var Const(object value, Type type)
         {
             if (value == null) {
@@ -413,6 +530,7 @@ namespace Lexico
                 throw new ArgumentException();
             }
             code.Add(new Operation {
+                opcode = OpCode.AddImmediate,
                 result = ((RuntimeVar)variable).index,
                 lhs = ((RuntimeVar)variable).index,
                 rhs = amount
@@ -477,9 +595,9 @@ namespace Lexico
             }
         }
 
-        internal static Context MakeRoot(Type outputType, IEnumerable<Feature> features)
+        internal static Context MakeRoot(Type outputType, IEnumerable<Feature> features, Program? parent)
         {
-            var p = new Program(outputType, features);
+            var p = new Program(outputType, features, parent);
             var skip = p.Label();
             p.Jump(skip);
             var success = p.Label();
@@ -498,7 +616,7 @@ namespace Lexico
             return new Context(p, p.result, success, failure, null, features, true);
         }
 
-        public Context MakeRecursive(Type outputType) => MakeRoot(outputType, features);
+        public Context MakeRecursive(Type outputType) => MakeRoot(outputType, features, this);
 
         public void Mark(Label label) {
             var r = (RuntimeLabel)label;
@@ -519,26 +637,37 @@ namespace Lexico
             r.jumpPoints.Clear();
         }
 
-        private RuntimeVar Allocate(Type type) {
+        private RuntimeVar Allocate(Type type, StackFrame? frame = null) {
             var found = pool.FirstOrDefault(x => x.type == type);
             if (found == null) {
                 found = new RuntimeVar(type, IsInt(type) ? iStackSize++ : oStackSize++, false);
             } else {
                 pool.Remove(found);
             }
-            frames.Peek().allocated.Add(found);
+            (frame ?? frames.Peek()).allocated.Add(found);
             return found;
         }
 
-        public Var Peek(int offset)
+        public Var Index(Var sequence, Var index)
         {
-            var v = Allocate(typeof(char));
-            code.Add(new Operation {
-                opcode = OpCode.Peek,
-                lhs = offset,
-                result = v.index
-            });
-            return v;
+            var _sequence = (RuntimeVar)sequence;
+            var _index = (RuntimeVar)index;
+            if (!IsInt(_index)) {
+                throw new ArgumentException("Index must be an integer");
+            }
+            if (_sequence.type == typeof(string))
+            {
+                var v = Allocate(typeof(char));
+                code.Add(new Operation {
+                    opcode = OpCode.StringIndex,
+                    lhs = _sequence.index,
+                    rhs = _index.index,
+                    result = v.index
+                });
+                return v;
+            } else {
+                throw new NotSupportedException();
+            }
         }
 
         public void Set(Var variable, object? value)

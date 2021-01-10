@@ -43,7 +43,7 @@ namespace Lexico.RegexImpl
             var start = context.GetFeature<StartPosition>().Get();
             context.Child(inner, null, null, null, context.Failure);
             if (context.Result != null) {
-                context.Succeed(e.Call(e.Sequence, nameof(string.Substring), start, e.Difference(e.Position, start)));
+                context.Succeed(e.Call(context.Sequence, nameof(string.Substring), start, e.Difference(context.Position, start)));
             } else {
                 context.Succeed();
             }

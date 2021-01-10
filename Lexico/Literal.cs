@@ -70,7 +70,7 @@ namespace Lexico
             var e = context.Emitter;
             context.RequireSymbols(literal.Length);
             for (int i = 0; i < literal.Length; i++) {
-                e.Compare(e.Peek(i), CompareOp.Equal, literal[i], context.Failure);
+                e.Compare(context.Peek(i), CompareOp.Equal, literal[i], context.Failure);
             }
             context.Advance(literal.Length);
             context.Succeed(e.Const(literal));

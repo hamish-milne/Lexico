@@ -37,14 +37,14 @@ namespace Lexico
             var nl = e.Const('\n');
             // TODO: Opt-in for fast whitespace
             Action<Label> multilineTest = label => {
-                e.Compare(e.Position, CompareOp.GreaterOrEqual, e.Length, label);
-                e.Compare(e.Peek(0), CompareOp.GreaterOrEqual, space, label);
+                e.Compare(context.Position, CompareOp.GreaterOrEqual, context.Length, label);
+                e.Compare(context.Peek(0), CompareOp.GreaterOrEqual, space, label);
             };
             Action<Label> test;
             if (multiline) {
                 test = multilineTest;
             } else {
-                test = label => { multilineTest(label); e.Compare(e.Peek(0), CompareOp.Equal, nl, label); };
+                test = label => { multilineTest(label); e.Compare(context.Peek(0), CompareOp.Equal, nl, label); };
             }
             // var isWhiteSpace = new Func<char, bool>(Char.IsWhiteSpace).Method;
             // Expression test = Call(isWhiteSpace, context.Peek(0));

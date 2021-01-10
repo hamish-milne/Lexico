@@ -14,17 +14,16 @@ namespace Lexico
             public bool Remember(int id, int pos) => cache.Add((id, pos));
         }
 
-        public Type[] DependsOn => new []{typeof(StartPosition)};
-
-        private Var memoObj;
+        private GlobalVar? memoObj;
         private readonly List<IParser> parsersById = new List<IParser>();
         private readonly Stack<(Var, Label)> store = new Stack<(Var, Label)>();
 
         public Context Before(IParser parser, Context context)
         {
             var e = context.Emitter;
-            if (memoObj == default) {
-                memoObj = e.Create(typeof(State));
+            if (memoObj == null) {
+                memoObj = e.Global(null, typeof(State));
+                e.Copy(e.GlobalRef(memoObj), e.Create(typeof(State)));
             }
             var id = parsersById.IndexOf(parser);
             if (id < 0) {
@@ -34,7 +33,7 @@ namespace Lexico
             var memoEnd = e.Label();
             store.Push((e.Const(id), memoEnd));
             e.Compare(
-                e.Call(memoObj, nameof(State.Check), store.Peek().Item1, e.Position),
+                e.Call(e.GlobalRef(memoObj), nameof(State.Check), store.Peek().Item1, context.Position),
                 CompareOp.Equal, e.Const(true), context.Failure);
             return new Context(context.Emitter, context.Result, context.Success, e.Label(), null, context.Features, context.CanWriteResult);
         }
@@ -47,7 +46,7 @@ namespace Lexico
             var skip = e.Label();
             e.Jump(skip);
             e.Mark(modified.Failure);
-            e.Call(memoObj, nameof(State.Remember), id, startPos);
+            e.Call(e.GlobalRef(memoObj), nameof(State.Remember), id, startPos);
             e.Jump(original.Failure);
             e.Mark(skip);
         }

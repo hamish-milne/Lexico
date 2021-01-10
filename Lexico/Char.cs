@@ -24,7 +24,7 @@ namespace Lexico
         {
             context.RequireSymbols(1);
             context.Advance(1);
-            context.Succeed(context.Emitter.Peek(-1));
+            context.Succeed(context.Peek(-1));
         }
     }
 }

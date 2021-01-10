@@ -5,7 +5,7 @@ namespace Lexico
 {
     public interface Entry
     {
-        bool TryParse(IParser parser, IEnumerable<Feature> features, string input, out object output);
+        bool TryParse(IParser parser, IEnumerable<Feature> features, string input, out object? output, ITrace? trace, object? userObject);
     }
 
     /// <summary>
@@ -44,7 +44,7 @@ namespace Lexico
         {
             var result = TryParse(str, typeof(T), out var objOut, trace!, userObject);
             if (result) {
-                output = (T)objOut;
+                output = (T)objOut!;
             } else {
                 output = default(T)!;
             }
@@ -53,12 +53,14 @@ namespace Lexico
 
         private static readonly Entry entry = new Runtime();
 
-        public static bool TryParse(string str, Type outputType, out object output, ITrace? trace = null, object? userObject = null)
+        public static bool TryParse(string str, Type outputType, out object? output, ITrace? trace = null, object? userObject = null)
         {
             return entry.TryParse(ParserCache.GetParser(outputType), new Feature[]{
+                new String(),
                 new StartPosition(),
-                new Recursive()
-            }, str, out output);
+                new Recursive(),
+                new Trace()
+            }, str, out output, trace, userObject);
         }
     }
 }
