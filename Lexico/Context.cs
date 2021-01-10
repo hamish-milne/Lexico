@@ -75,6 +75,7 @@ namespace Lexico
         void Increment(Var variable, int amount);
         void Jump(Label label);
         void Compare(Var lhs, CompareOp op, Var rhs, Label label);
+        void CheckType(Var lhs, Type type, Label label);
         void CheckFlag(Var var, int flag, bool compare, Label label);
         void SetFlag(Var var, int flag, bool value);
         Var Difference(Var lhs, Var rhs);

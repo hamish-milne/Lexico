@@ -87,7 +87,7 @@ namespace Lexico
             if (context.Result != null && !e.TypeOf(context.Result).IsValueType && context.CanWriteResult)
             {
                 var skip = e.Label();
-                e.Compare(context.Result, CompareOp.NotEqual, e.Default(typeof(object)), skip);
+                e.CheckType(context.Result, OutputType, skip);
                 e.Copy(context.Result, e.Create(OutputType));
                 e.Mark(skip);
             }

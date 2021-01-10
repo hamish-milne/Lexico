@@ -96,7 +96,6 @@ namespace Lexico
             if (context.Success == null) {
                 e.Mark(success);
             }
-            context.Succeed();
         }
 
         public override string ToString() => $"Any {OutputType.Name}";

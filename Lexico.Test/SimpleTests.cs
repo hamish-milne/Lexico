@@ -50,7 +50,7 @@ namespace Lexico.Test
         [Fact]
         private void ChoiceTest()
         {
-            Assert.True(Lexico.TryParse<ChoiceTestObj>("defdef", out var outObj));
+            Assert.True(Lexico.TryParse<ChoiceTestObj>("abcdef", out var outObj));
             Assert.Equal(2, outObj.Items.Count);
             Assert.IsType<Choice1>(outObj.Items[0]);
             Assert.IsType<Choice2>(outObj.Items[1]);

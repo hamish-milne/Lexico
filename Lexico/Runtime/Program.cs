@@ -62,6 +62,7 @@ namespace Lexico
             Call,
             Construct,
             ObjEqual,
+            CheckType,
             IntEqual,
             IntCompare,
             JumpTrue,
@@ -108,11 +109,13 @@ namespace Lexico
         private readonly List<int> iGlobals;
         private readonly List<object?> oGlobals;
 
-        private int GetTypeIndex(RuntimeVar var) {
-            var idx = typeTable.IndexOf(var.type);
+        private int GetTypeIndex(RuntimeVar var) => GetTypeIndex(var.type);
+
+        private int GetTypeIndex(Type type) {
+            var idx = typeTable.IndexOf(type);
             if (idx < 0) {
                 idx = typeTable.Count;
-                typeTable.Add(var.type);
+                typeTable.Add(type);
             }
             return idx;
         }
@@ -216,6 +219,9 @@ namespace Lexico
                     break;
                 case OpCode.ObjEqual:
                     test = oValues[inst.lhs] == oValues[inst.rhs];
+                    break;
+                case OpCode.CheckType:
+                    test = typeTable[inst.rhs].IsInstanceOfType(oValues[inst.lhs]);
                     break;
                 case OpCode.Box:
                     oValues[inst.result] = conversions[typeTable[inst.rhs]].itoo(iValues[inst.lhs]);
@@ -378,6 +384,23 @@ namespace Lexico
                     result = GetTarget(onSuccess)
                 });
             }
+        }
+
+        public void CheckType(Var lhs, Type type, Label label)
+        {
+            var _lhs = (RuntimeVar)lhs;
+            if (IsInt(_lhs)) {
+                throw new ArgumentException();
+            }
+            code.Add(new Operation {
+                opcode = OpCode.CheckType,
+                lhs = _lhs.index,
+                rhs = GetTypeIndex(type)
+            });
+            code.Add(new Operation {
+                opcode = OpCode.JumpTrue,
+                result = GetTarget(label)
+            });
         }
 
         public void Compare(Var lhs, CompareOp op, Var rhs, Label label)
