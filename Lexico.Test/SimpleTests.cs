@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Xunit;
 
 namespace Lexico.Test
@@ -17,5 +18,43 @@ namespace Lexico.Test
             Assert.NotNull(outObj);
             Assert.False(Lexico.TryParse<LiteralTestObj>("fooba", out var _));
         }
+
+        class RepeatTestObj
+        {
+            [Repeat, Literal("abc")] public List<string> Items { get; } = new List<string>();
+        }
+
+        [Fact]
+        public void RepeatTest()
+        {
+            Assert.True(Lexico.TryParse<RepeatTestObj>("abcabcabc", out var outObj));
+            Assert.Equal(3, outObj.Items.Count);
+        }
+
+        class ChoiceTestObj
+        {
+            [Term] public List<Choice> Items { get; } = new List<Choice>();
+        }
+
+        abstract class Choice {
+        }
+
+        class Choice1 : Choice {
+            [Literal("abc")] Unnamed _;
+        }
+
+        class Choice2 : Choice {
+            [Literal("def")] Unnamed _;
+        }
+
+        [Fact]
+        private void ChoiceTest()
+        {
+            Assert.True(Lexico.TryParse<ChoiceTestObj>("defdef", out var outObj));
+            Assert.Equal(2, outObj.Items.Count);
+            Assert.IsType<Choice1>(outObj.Items[0]);
+            Assert.IsType<Choice2>(outObj.Items[1]);
+        }
+        
     }
 }

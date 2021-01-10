@@ -314,9 +314,9 @@ namespace Lexico
             var result = Allocate(IsInt(returnType) ? typeof(object) : returnType);
             var _args = (method is ConstructorInfo ? Array.Empty<Var>() : new []{obj ?? Default(typeof(object))})
                 .Concat(arguments).Cast<RuntimeVar>().ToArray();
-            if (_args.Length > 1 && (_args.Length == 0 || IsInt(_args[0]) == IsInt(p[0].ParameterType))) {
+            if (_args.Length <= 1 && (_args.Length == 0 || IsInt(_args[0]) == false)) {
                 code.Add(new Operation {
-                    opcode = OpCode.Call,
+                    opcode = method is ConstructorInfo ? OpCode.Construct : OpCode.Call,
                     result = result.index,
                     lhs = mIdx,
                     rhs = _args.Length == 0 ? 0 : _args[0].index,
@@ -324,7 +324,7 @@ namespace Lexico
             } else {
                 var start = frames.Peek().allocated.Where(x => !IsInt(x.type)).OrderByDescending(x => x.index).FirstOrDefault()?.index ?? -1;
                 start += 1;
-                oStackSize = Math.Max(oStackSize, start + p.Length);
+                oStackSize = Math.Max(oStackSize, start + _args.Length);
                 for (int i = 0; i < _args.Length; i++) {
                     code.Add(new Operation {
                         opcode = IsInt(_args[i]) ? OpCode.Box : OpCode.ObjCopy,
