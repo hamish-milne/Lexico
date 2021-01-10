@@ -58,8 +58,8 @@ namespace Lexico
             var features = new List<Feature> {
                 new String(),
                 new UserObject(),
-                new StartPosition(),
                 new Recursive(),
+                new StartPosition(),
             };
             if (trace != null) {
                 features.Add(new Trace());

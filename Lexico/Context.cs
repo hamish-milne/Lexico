@@ -101,7 +101,7 @@ namespace Lexico
         public static void Restore(this Context context, (Var, Label) savePoint)
         {
             context.Emitter.Mark(savePoint.Item2);
-            context.Emitter.Copy(savePoint.Item1, context.Position);
+            context.Emitter.Copy(context.Position, savePoint.Item1);
         }
 
         public static Var Peek(this Context context, int offset)
@@ -156,13 +156,17 @@ namespace Lexico
 
         public static void CompileWithFeatures(this Context context, IParser parser)
         {
-            var modifiedContext = context;
+            var list = new List<(Feature feature, Context original, Context modified)>();
+            var it = context;
             foreach (var f in context.Features) {
-                modifiedContext = f.Before(parser, context);
+                var original = it;
+                var modified = f.Before(parser, it);
+                list.Insert(0, (f, original, modified));
+                it = modified;
             }
-            parser.Compile(modifiedContext);
-            foreach (var f in context.Features.Reverse()) {
-                f.After(parser, context, modifiedContext);
+            parser.Compile(it);
+            foreach (var (f, original, modified) in list) {
+                f.After(parser, original, modified);
             }
         }
 
@@ -193,7 +197,7 @@ namespace Lexico
 
         public static void Succeed(this Context context, Var? result) {
             if (context.Result != null && result != null) {
-                context.Emitter.Copy(result, context.Result);
+                context.Emitter.Copy(context.Result, result);
             }
             context.Succeed();
         }

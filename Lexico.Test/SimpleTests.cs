@@ -55,6 +55,24 @@ namespace Lexico.Test
             Assert.IsType<Choice1>(outObj.Items[0]);
             Assert.IsType<Choice2>(outObj.Items[1]);
         }
+
+        class RecursiveTestObj {
+            [Literal("[")] Unnamed _;
+            [Optional] RecursiveTestObj next;
+            [Literal("]")] Unnamed __;
+
+            public int Count() {
+                return next == null ? 0 : (next.Count() + 1);
+            }
+        }
+
+        [Fact]
+        private void RecursiveTest()
+        {
+            Assert.True(Lexico.TryParse<RecursiveTestObj>("[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]", out var outObj));
+            Assert.Equal(25, outObj.Count());
+        }
+
         
     }
 }

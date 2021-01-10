@@ -1,5 +1,3 @@
-using System;
-
 namespace Lexico
 {
     class Trace : Feature
@@ -8,6 +6,10 @@ namespace Lexico
 
         public Context Before(IParser parser, Context context)
         {
+            // TODO: More robust system for ignoring in trace
+            if (parser is RecursiveParser) {
+                return context;
+            }
             var e = context.Emitter;
             if (TraceObj == null) {
                 TraceObj = e.Global(null, typeof(ITrace));
@@ -25,6 +27,9 @@ namespace Lexico
 
         public void After(IParser parser, Context original, Context modified)
         {
+            if (original == modified) {
+                return;
+            }
             var e = original.Emitter;
             var p = e.Const(parser);
             var startPos = original.GetFeature<StartPosition>().Get();

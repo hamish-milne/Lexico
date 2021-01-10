@@ -276,7 +276,23 @@ namespace Lexico
                     break;
                 case OpCode.Subroutine:
                     var program = dependencies[inst.lhs];
+                    // Write back globals (the caller might've changed them)
+                    foreach (var (local, global, isInt) in globalRefs) {
+                        if (isInt) {
+                            iGlobals[global] = iValues[local];
+                        } else {
+                            oGlobals[global] = oValues[local];
+                        }
+                    }
                     test = program.Execute(iGlobals, oGlobals, out oValues[inst.result]);
+                    // Load globals (the callee might've changed them)
+                    foreach (var (local, global, isInt) in globalRefs) {
+                        if (isInt) {
+                            iValues[local] = iGlobals[global];
+                        } else {
+                            oValues[local] = oGlobals[global];
+                        }
+                    }
                     break;
                 case OpCode.StringIndex:
                     iValues[inst.result] = ((string)oValues[inst.lhs]!)[iValues[inst.rhs]];
