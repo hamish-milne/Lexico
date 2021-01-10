@@ -21,8 +21,8 @@ namespace Lexico
             return ((Program)ctx.Emitter).Execute(new Dictionary<GlobalVar, object?> {
                 {vars.Length, input.Length},
                 {vars.Sequence, input},
-                {ctx.GetFeature<Trace>().TraceObj, trace},
-                {ctx.GetFeature<UserObject>().Global, userObject}
+                // {ctx.GetFeature<Trace>().TraceObj, trace},
+                // {ctx.GetFeature<UserObject>().Global, userObject}
             }, out output);
         }
     }
@@ -108,6 +108,15 @@ namespace Lexico
         private readonly List<int> iGlobals;
         private readonly List<object?> oGlobals;
 
+        private int GetTypeIndex(RuntimeVar var) {
+            var idx = typeTable.IndexOf(var.type);
+            if (idx < 0) {
+                idx = typeTable.Count;
+                typeTable.Add(var.type);
+            }
+            return idx;
+        }
+
         public Program(Type outputType, IEnumerable<Feature> features, Program? parent) {
             Frame();
             result = Allocate(outputType);
@@ -177,97 +186,98 @@ namespace Lexico
             // Load globals
             foreach (var (local, global, isInt) in globalRefs) {
                 if (isInt) {
-                    iValues[global] = iGlobals[local];
+                    iValues[local] = iGlobals[global];
                 } else {
-                    oValues[global] = oGlobals[local];
+                    oValues[local] = oGlobals[global];
                 }
             }
             while (true)
             {
-                switch (code[pc].opcode) {
+                var inst = code[pc];
+                switch (inst.opcode) {
                 case OpCode.Jump:
-                    pc = code[pc].result;
+                    pc = inst.result;
                     break;
                 case OpCode.JumpTrue:
                     if (test) {
-                        pc = code[pc].result;
+                        pc = inst.result;
                     }
                     break;
                 case OpCode.JumpFalse:
                     if (!test) {
-                        pc = code[pc].result;
+                        pc = inst.result;
                     }
                     break;
                 case OpCode.IntEqual:
-                    test = iValues[code[pc].lhs] == iValues[code[pc].rhs];
+                    test = iValues[inst.lhs] == iValues[inst.rhs];
                     break;
                 case OpCode.IntCompare:
-                    test = iValues[code[pc].lhs] < iValues[code[pc].rhs];
+                    test = iValues[inst.lhs] < iValues[inst.rhs];
                     break;
                 case OpCode.ObjEqual:
-                    test = oValues[code[pc].lhs] == oValues[code[pc].rhs];
+                    test = oValues[inst.lhs] == oValues[inst.rhs];
                     break;
                 case OpCode.Box:
-                    oValues[code[pc].result] = conversions[typeTable[code[pc].lhs]].itoo(iValues[code[pc].lhs]);
+                    oValues[inst.result] = conversions[typeTable[inst.rhs]].itoo(iValues[inst.lhs]);
                     break;
                 case OpCode.Unbox:
-                    iValues[code[pc].result] = conversions[typeTable[code[pc].result]].otoi(oValues[code[pc].lhs]);
+                    iValues[inst.result] = conversions[typeTable[inst.rhs]].otoi(oValues[inst.lhs]!);
                     break;
                 case OpCode.Call: {
-                    var (method, count) = methodTable[code[pc].lhs];
-                    var obj = oValues[code[pc].rhs];
+                    var (method, count) = methodTable[inst.lhs];
+                    var obj = oValues[inst.rhs];
                     var args = new object?[count];
                     for (int i = 0; i < count; i++) {
-                        args[i] = oValues[code[pc].rhs + 1 + i];
+                        args[i] = oValues[inst.rhs + 1 + i];
                     }
-                    oValues[code[pc].result] = method.Invoke(obj, args.ToArray());
+                    oValues[inst.result] = method.Invoke(obj, args.ToArray());
                 }
                     break;
                 case OpCode.Construct: {
-                    var (method, count) = methodTable[code[pc].lhs];
+                    var (method, count) = methodTable[inst.lhs];
                     var args = new object?[count];
                     for (int i = 0; i < count; i++) {
-                        args[i] = oValues[code[pc].rhs + i];
+                        args[i] = oValues[inst.rhs + i];
                     }
-                    oValues[code[pc].result] = ((ConstructorInfo)method).Invoke(args);
+                    oValues[inst.result] = ((ConstructorInfo)method).Invoke(args);
                 }
                     break;
                 case OpCode.ObjCopy:
-                    oValues[code[pc].result] = oValues[code[pc].lhs];
+                    oValues[inst.result] = oValues[inst.lhs];
                     break;
                 case OpCode.IntSet:
-                    iValues[code[pc].result] = code[pc].lhs;
+                    iValues[inst.result] = inst.lhs;
                     break;
                 case OpCode.IntCopy:
-                    iValues[code[pc].result] = iValues[code[pc].lhs];
+                    iValues[inst.result] = iValues[inst.lhs];
                     break;
                 case OpCode.LoadField:
-                    oValues[code[pc].result] = fieldTable[code[pc].rhs].GetValue(oValues[code[pc].lhs]);
+                    oValues[inst.result] = fieldTable[inst.rhs].GetValue(oValues[inst.lhs]);
                     break;
                 case OpCode.StoreField:
-                    fieldTable[code[pc].rhs].SetValue(oValues[code[pc].lhs], oValues[code[pc].result]);
+                    fieldTable[inst.rhs].SetValue(oValues[inst.lhs], oValues[inst.result]);
                     break;
                 case OpCode.AddImmediate:
-                    iValues[code[pc].result] = iValues[code[pc].lhs] + code[pc].rhs;
+                    iValues[inst.result] = iValues[inst.lhs] + inst.rhs;
                     break;
                 case OpCode.Subtract:
-                    iValues[code[pc].result] = iValues[code[pc].lhs] - iValues[code[pc].rhs];
+                    iValues[inst.result] = iValues[inst.lhs] - iValues[inst.rhs];
                     break;
                 case OpCode.Subroutine:
-                    var program = dependencies[code[pc].lhs];
-                    test = program.Execute(iGlobals, oGlobals, out oValues[code[pc].result]);
+                    var program = dependencies[inst.lhs];
+                    test = program.Execute(iGlobals, oGlobals, out oValues[inst.result]);
                     break;
                 case OpCode.StringIndex:
-                    iValues[code[pc].result] = ((string)oValues[code[pc].lhs]!)[iValues[code[pc].lhs]];
+                    iValues[inst.result] = ((string)oValues[inst.lhs]!)[iValues[inst.rhs]];
                     break;
                 case OpCode.ListIndex:
-                    oValues[code[pc].result] = ((IList)oValues[code[pc].lhs]!)[iValues[code[pc].rhs]];
+                    oValues[inst.result] = ((IList)oValues[inst.lhs]!)[iValues[inst.rhs]];
                     break;
                 case OpCode.BitwiseAnd:
-                    iValues[code[pc].result] = iValues[code[pc].lhs] & iValues[code[pc].rhs];
+                    iValues[inst.result] = iValues[inst.lhs] & iValues[inst.rhs];
                     break;
                 case OpCode.BitwiseOr:
-                    iValues[code[pc].result] = iValues[code[pc].lhs] | iValues[code[pc].rhs];
+                    iValues[inst.result] = iValues[inst.lhs] | iValues[inst.rhs];
                     break;
                 case OpCode.Return:
                     result = oValues[this.result.index];
@@ -279,7 +289,7 @@ namespace Lexico
                             oGlobals[global] = oValues[local];
                         }
                     }
-                    return code[pc].lhs != 0;
+                    return inst.lhs != 0;
                 default:
                     throw new InvalidOperationException("Invalid opcode");
                 }
@@ -320,6 +330,7 @@ namespace Lexico
                         opcode = IsInt(_args[i]) ? OpCode.Box : OpCode.ObjCopy,
                         result = start + i,
                         lhs = _args[i].index,
+                        rhs = GetTypeIndex(_args[i])
                     });
                 }
                 code.Add(new Operation {
@@ -335,7 +346,8 @@ namespace Lexico
                 code.Add(new Operation {
                     opcode = OpCode.Unbox,
                     result = realResult.index,
-                    lhs = result.index
+                    lhs = result.index,
+                    rhs = GetTypeIndex(realResult)
                 });
                 return realResult;
             } else {
@@ -459,7 +471,7 @@ namespace Lexico
             if (globalRefsCache.TryGetValue(_global, out var v)) {
                 return v;
             }
-            var localVar = Allocate(_global.type, frames.First());
+            var localVar = Allocate(_global.type, frames.Last());
             globalRefs.Add((localVar.index, _global.index, IsInt(localVar)));
             globalRefsCache.Add(_global, localVar);
             return localVar;
@@ -474,8 +486,8 @@ namespace Lexico
             if (IsInt(v)) {
                 code.Add(new Operation {
                     opcode = OpCode.IntSet,
-                    lhs = v.index,
-                    rhs = conversions[type].otoi(value)
+                    result = v.index,
+                    lhs = conversions[type].otoi(value)
                 });
             } else {
                 while (constants.Count <= v.index) {
@@ -577,7 +589,8 @@ namespace Lexico
                     code.Add(new Operation {
                         opcode = OpCode.Unbox,
                         result = v.index,
-                        lhs = v1.index
+                        lhs = v1.index,
+                        rhs = GetTypeIndex(v)
                     });
                 } else {
                     code.Add(new Operation {
@@ -704,7 +717,8 @@ namespace Lexico
                     code.Add(new Operation {
                         opcode = OpCode.Box,
                         lhs = _value.index,
-                        rhs = v1.index
+                        result = v1.index,
+                        rhs = GetTypeIndex(_value)
                     });
                     _value = v1;
                 }

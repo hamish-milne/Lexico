@@ -125,7 +125,7 @@ namespace Lexico
         }
 
         public static Var GetSymbolsRemaining(this Context context) {
-            return context.Emitter.Difference(context.Position, context.Length);
+            return context.Emitter.Difference(context.Length, context.Position);
         }
 
         public static void Advance(this Context context, int count)

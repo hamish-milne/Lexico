@@ -57,9 +57,9 @@ namespace Lexico
         {
             return entry.TryParse(ParserCache.GetParser(outputType), new Feature[]{
                 new String(),
-                new StartPosition(),
-                new Recursive(),
-                new Trace()
+                // new StartPosition(),
+                // new Recursive(),
+                // new Trace()
             }, str, out output, trace, userObject);
         }
     }
