@@ -30,12 +30,12 @@ namespace Lexico
             var startPos = original.GetFeature<StartPosition>().Get();
             e.Mark(modified.Failure);
             var trace = e.GlobalRef(TraceObj);
-            e.Call(trace, nameof(ITrace.Pop), p, e.Const(true), modified.Result!,
+            e.Call(trace, nameof(ITrace.Pop), p, e.Const(false), modified.Result!,
                 e.Create(typeof(StringSegment), original.Sequence, startPos, e.Difference(original.Position, startPos))
             );
             e.Jump(original.Failure);
             e.Mark(modified.Success!);
-            e.Call(trace, nameof(ITrace.Pop), p, e.Const(false), modified.Result!,
+            e.Call(trace, nameof(ITrace.Pop), p, e.Const(true), modified.Result!,
                 e.Create(typeof(StringSegment), original.Sequence, startPos, e.Difference(original.Position, startPos))
             );
             if (original.Success != null) {

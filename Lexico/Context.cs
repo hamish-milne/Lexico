@@ -161,7 +161,7 @@ namespace Lexico
                 modifiedContext = f.Before(parser, context);
             }
             parser.Compile(modifiedContext);
-            foreach (var f in context.Features) {
+            foreach (var f in context.Features.Reverse()) {
                 f.After(parser, context, modifiedContext);
             }
         }

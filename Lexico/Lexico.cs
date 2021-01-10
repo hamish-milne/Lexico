@@ -55,12 +55,16 @@ namespace Lexico
 
         public static bool TryParse(string str, Type outputType, out object? output, ITrace? trace = null, object? userObject = null)
         {
-            return entry.TryParse(ParserCache.GetParser(outputType), new Feature[]{
+            var features = new List<Feature> {
                 new String(),
-                // new StartPosition(),
-                // new Recursive(),
-                // new Trace()
-            }, str, out output, trace, userObject);
+                new UserObject(),
+                new StartPosition(),
+                new Recursive(),
+            };
+            if (trace != null) {
+                features.Add(new Trace());
+            }
+            return entry.TryParse(ParserCache.GetParser(outputType), features, str, out output, trace, userObject);
         }
     }
 }

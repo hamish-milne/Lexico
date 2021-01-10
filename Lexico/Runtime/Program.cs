@@ -18,12 +18,17 @@ namespace Lexico
                 cache.Add(parser, ctx);
             }
             var vars = ctx.GetFeature<String>();
-            return ((Program)ctx.Emitter).Execute(new Dictionary<GlobalVar, object?> {
+            var args = new Dictionary<GlobalVar, object?> {
                 {vars.Length, input.Length},
                 {vars.Sequence, input},
-                // {ctx.GetFeature<Trace>().TraceObj, trace},
-                // {ctx.GetFeature<UserObject>().Global, userObject}
-            }, out output);
+            };
+            if (ctx.Features.OfType<Trace>().Any()) {
+                args[ctx.GetFeature<Trace>().TraceObj] = trace;
+            }
+            if (ctx.Features.OfType<UserObject>().Any()) {
+                args[ctx.GetFeature<UserObject>().Global] = userObject;
+            }
+            return ((Program)ctx.Emitter).Execute(args, out output);
         }
     }
 
@@ -328,7 +333,10 @@ namespace Lexico
                     rhs = _args.Length == 0 ? 0 : _args[0].index,
                 });
             } else {
-                var start = frames.Peek().allocated.Where(x => !IsInt(x.type)).OrderByDescending(x => x.index).FirstOrDefault()?.index ?? -1;
+                var start = frames.SelectMany(x => x.allocated)
+                    .Where(x => !IsInt(x.type))
+                    .OrderByDescending(x => x.index)
+                    .FirstOrDefault()?.index ?? -1;
                 start += 1;
                 oStackSize = Math.Max(oStackSize, start + _args.Length);
                 for (int i = 0; i < _args.Length; i++) {
@@ -505,20 +513,25 @@ namespace Lexico
             if (value == null) {
                 throw new ArgumentNullException();
             }
-            var v = Allocate(type);
-            if (IsInt(v)) {
+            if (IsInt(type)) {
+                // TODO: Use int constants
+                var v = Allocate(type);
                 code.Add(new Operation {
                     opcode = OpCode.IntSet,
                     result = v.index,
                     lhs = conversions[type].otoi(value)
                 });
+                return v;
+            } else if (constants.Contains(value)) {
+                return new RuntimeVar(type, constants.IndexOf(value), true);
             } else {
+                var v = Allocate(type, frames.Last());
                 while (constants.Count <= v.index) {
                     constants.Add(null);
                 }
                 constants[v.index] = value;
+                return v;
             }
-            return v;
         }
 
         public void Copy(Var lhs, Var rhs)
