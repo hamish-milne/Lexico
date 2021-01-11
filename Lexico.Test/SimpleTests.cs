@@ -48,7 +48,7 @@ namespace Lexico.Test
         }
 
         [Fact]
-        private void ChoiceTest()
+        public void ChoiceTest()
         {
             Assert.True(Lexico.TryParse<ChoiceTestObj>("abcdef", out var outObj, new ConsoleTrace()));
             Assert.Equal(2, outObj.Items.Count);
@@ -67,10 +67,40 @@ namespace Lexico.Test
         }
 
         [Fact]
-        private void RecursiveTest()
+        public void RecursiveTest()
         {
             Assert.True(Lexico.TryParse<RecursiveTestObj>("[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]", out var outObj));
             Assert.Equal(25, outObj.Count());
+        }
+
+        abstract class Expression {
+            public abstract int Eval();
+        }
+
+        class Expression2 : Expression {
+            [Term] public Expression lhs;
+            [Literal("+")] Unnamed _;
+            [Term] public Expression rhs;
+            public override int Eval() => lhs.Eval() + rhs.Eval();
+        }
+
+        class Expression3 : Expression {
+            [Term] public Expression lhs;
+            [Literal("*")] Unnamed _;
+            [Term] public Expression rhs;
+            public override int Eval() => lhs.Eval() * rhs.Eval();
+        }
+
+        class Expression1 : Expression {
+            [CharRange("09")] public char c;
+            public override int Eval() => c - '0';
+        }
+
+        [Fact]
+        public void ILRTest()
+        {
+            Assert.True(Lexico.TryParse<Expression>("1+2*3", out var outObj, new ConsoleTrace()));
+            Assert.Equal(7, outObj.Eval());
         }
 
         

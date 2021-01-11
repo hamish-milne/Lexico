@@ -34,18 +34,35 @@ namespace Lexico
                 e.CheckFlag(_flags, id, true, context.Failure);
                 e.SetFlag(_flags, id, true);
                 e.Mark(skip1);
+                parsers.Push(parser);
+                return new Context(
+                    context.Emitter,
+                    context.Result,
+                    e.Label(),
+                    e.Label(),
+                    context.Name,
+                    context.Features,
+                    context.CanWriteResult
+                );
+            } else {
+                parsers.Push(parser);
+                return context;
             }
-            parsers.Push(parser);
-            return context;
         }
 
         public void After(IParser parser, Context original, Context modified)
         {
             parsers.Pop();
             var id = targets.IndexOf(parser);
-            if (id >= 0 && parsers.Count > 0 && Recursive.IsRecursive(parsers.Peek())) {
-                var _flags = original.Emitter.GlobalRef(flags!);
+            if (id >= 0 && original != modified) {
+                var e = original.Emitter;
+                var _flags = e.GlobalRef(flags!);
+                e.Mark(modified.Failure);
                 original.Emitter.SetFlag(_flags, id, false);
+                e.Jump(original.Failure);
+                e.Mark(modified.Success!);
+                original.Emitter.SetFlag(_flags, id, false);
+                original.Succeed();
             }
         }
     }

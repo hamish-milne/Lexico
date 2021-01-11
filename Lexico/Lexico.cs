@@ -60,6 +60,7 @@ namespace Lexico
                 new UserObject(),
                 new Recursive(),
                 new StartPosition(),
+                new CheckILR()
             };
             if (trace != null) {
                 features.Add(new Trace());

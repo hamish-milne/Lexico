@@ -301,10 +301,10 @@ namespace Lexico
                     oValues[inst.result] = ((IList)oValues[inst.lhs]!)[iValues[inst.rhs]];
                     break;
                 case OpCode.BitwiseAnd:
-                    iValues[inst.result] = iValues[inst.lhs] & iValues[inst.rhs];
+                    iValues[inst.result] = iValues[inst.lhs] & inst.rhs;
                     break;
                 case OpCode.BitwiseOr:
-                    iValues[inst.result] = iValues[inst.lhs] | iValues[inst.rhs];
+                    iValues[inst.result] = iValues[inst.lhs] | inst.rhs;
                     break;
                 case OpCode.Return:
                     result = oValues[this.result.index];
@@ -495,7 +495,7 @@ namespace Lexico
                 rhs = 0,
             });
             code.Add(new Operation {
-                opcode = compare ? OpCode.JumpTrue : OpCode.JumpFalse,
+                opcode = compare ? OpCode.JumpFalse : OpCode.JumpTrue,
                 result = GetTarget(label)
             });
         }
