@@ -84,7 +84,7 @@ namespace Lexico
             var e = context.Emitter;
             // Get the current value. If it's not the right type, make a new one.
             // If we're not saving the value, no need to do this
-            if (context.Result != null && !e.TypeOf(context.Result).IsValueType && context.CanWriteResult)
+            if (context.Result != null && context.CanWriteResult)
             {
                 var skip = e.Label();
                 e.CheckType(context.Result, OutputType, skip);

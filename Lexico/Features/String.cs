@@ -13,7 +13,7 @@ namespace Lexico
         {
         }
 
-        public Context Before(IParser parser, Context context)
+        public Context Before(IParser parser, Context context, ref bool skipContent)
         {
             if (Sequence == null) {
                 var e = context.Emitter;

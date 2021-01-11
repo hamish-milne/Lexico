@@ -702,7 +702,12 @@ namespace Lexico
             r.jumpPoints.Clear();
         }
 
+        private readonly RuntimeVar vVoid = new RuntimeVar(typeof(void), 0, true);
+
         private RuntimeVar Allocate(Type type, StackFrame? frame = null) {
+            if (type == typeof(void)) {
+                return vVoid;
+            }
             var found = pool.FirstOrDefault(x => x.type == type);
             if (found == null) {
                 found = new RuntimeVar(type, IsInt(type) ? iStackSize++ : oStackSize++, false);
@@ -797,7 +802,14 @@ namespace Lexico
 
         public Var Default(Type type)
         {
-            return new RuntimeVar(type, 0, true);
+            if (type == typeof(void)) {
+                return vVoid;
+            }
+            if (IsInt(type) || !type.IsValueType) {
+                return new RuntimeVar(type, 0, true);
+            } else {
+                return Const(Activator.CreateInstance(type), type);
+            }
         }
     }
 }

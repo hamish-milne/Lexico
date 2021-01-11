@@ -57,7 +57,7 @@ namespace Lexico
 
     public interface Feature
     {
-        Context Before(IParser parser, Context context);
+        Context Before(IParser parser, Context context, ref bool skipContent);
         void After(IParser parser, Context original, Context modified);
     }
 
@@ -91,7 +91,7 @@ namespace Lexico
 
 
 
-    static class ContextExtensions2
+    static class ContextExtensions
     {
         public static (Var state, Label label) Save(this Context context)
         {
@@ -158,13 +158,16 @@ namespace Lexico
         {
             var list = new List<(Feature feature, Context original, Context modified)>();
             var it = context;
+            bool skipContent = false;
             foreach (var f in context.Features) {
                 var original = it;
-                var modified = f.Before(parser, it);
+                var modified = f.Before(parser, it, ref skipContent);
                 list.Insert(0, (f, original, modified));
                 it = modified;
             }
-            parser.Compile(it);
+            if (!skipContent) {
+                parser.Compile(it);
+            }
             foreach (var (f, original, modified) in list) {
                 f.After(parser, original, modified);
             }
@@ -184,6 +187,9 @@ namespace Lexico
 
         public static Var Create(this Emitter emitter, Type type, params Var[] arguments)
         {
+            if (type.IsValueType && arguments.Length == 0) {
+                return emitter.Default(type);
+            }
             var ctor = type.GetConstructor(arguments.Select(emitter.TypeOf).ToArray()) ?? throw new ArgumentException("Constructor not found");
             return emitter.Call(null, ctor, arguments);
         }

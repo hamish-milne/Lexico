@@ -7,7 +7,7 @@ namespace Lexico
     {
         private readonly Stack<Var> stored = new Stack<Var>();
 
-        public Context Before(IParser parser, Context context)
+        public Context Before(IParser parser, Context context, ref bool skipContent)
         {
             stored.Push(context.Emitter.Copy(context.Position));
             return context;

@@ -10,13 +10,13 @@ namespace Lexico
         private readonly Dictionary<IParser, Var> ilrPos = new Dictionary<IParser, Var>();
         private GlobalVar? flags;
 
-        public Context Before(IParser parser, Context context)
+        public Context Before(IParser parser, Context context, ref bool skipContent)
         {
             var e = context.Emitter;
             if (flags == null) {
                 flags = e.Global(0, typeof(int));
             }
-            if (Recursive.IsRecursive(parser)) {
+            if (Recursive.IsRecursive(parser) && !ilrPos.ContainsKey(parser)) {
                 ilrPos.Add(parser, e.Copy(context.Position));
             }
             if (parsers.Count > 0 && Recursive.IsRecursive(parsers.Peek())) {

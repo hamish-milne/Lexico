@@ -18,7 +18,7 @@ namespace Lexico
         private readonly List<IParser> parsersById = new List<IParser>();
         private readonly Stack<(Var, Label)> store = new Stack<(Var, Label)>();
 
-        public Context Before(IParser parser, Context context)
+        public Context Before(IParser parser, Context context, ref bool skipContent)
         {
             var e = context.Emitter;
             if (memoObj == null) {

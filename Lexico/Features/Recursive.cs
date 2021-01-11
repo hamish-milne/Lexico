@@ -9,12 +9,17 @@ namespace Lexico
 
         public static bool IsRecursive(IParser parser) => ParserCache.IsRecursive(parser);
 
-        public Context Before(IParser parser, Context context)
+        public Context Before(IParser parser, Context context, ref bool skipContent)
         {
-            if (IsRecursive(parser) && !programs.ContainsKey(parser)) {
-                var ctx = context.Emitter.MakeRecursive(parser.OutputType);
-                programs.Add(parser, ctx.Emitter);
-                return ctx;
+            if (IsRecursive(parser)) {
+                if (programs.ContainsKey(parser)) {
+                    skipContent = true;
+                    return context;
+                } else {
+                    var ctx = context.Emitter.MakeRecursive(parser.OutputType);
+                    programs.Add(parser, ctx.Emitter);
+                    return ctx;
+                }
             } else {
                 return context;
             }
