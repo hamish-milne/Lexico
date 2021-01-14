@@ -79,7 +79,7 @@ namespace Lexico.RegexImpl
         public List<Sequence> Items { get; } = new List<Sequence>();
 
         public IParser Create() => Items.Count == 1 ? Items[0].Create()
-            : new AlternativeParser(typeof(string), Items.Select(s => s.Create()));
+            : new AlternativeParser(typeof(void), Items.Select(s => s.Create()));
     }
 
     public class Sequence

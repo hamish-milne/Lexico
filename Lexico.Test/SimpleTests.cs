@@ -114,6 +114,24 @@ namespace Lexico.Test
             Assert.Equal("abc012DEF", outObj.str);
         }
 
+        [Fact]
+        public void RegexTest2()
+        {
+            Assert.True(Lexico.TryParse<RegexImpl.Regex>("(?:(?:.))*", out var obj));
+        }
+
+        [MultiLine, TopLevel]
+        class WhitespaceTestObj
+        {
+            [Whitespace] Unnamed _;
+        }
+
+        [Fact]
+        public void WhitespaceTest()
+        {
+            Assert.True(Lexico.TryParse<WhitespaceTestObj>("  \n   \n \t   ", out var _, new ConsoleTrace{Verbose = true}));
+        }
+
         
     }
 }

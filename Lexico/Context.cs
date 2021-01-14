@@ -94,15 +94,23 @@ namespace Lexico
 
     static class ContextExtensions
     {
-        public static (Var state, Label label) Save(this Context context)
+        public static (Var[] state, Label label) Save(this Context context)
         {
-            return (context.Emitter.Copy(context.Position), context.Emitter.Label());
+            var e = context.Emitter;
+            var checkIlr = context.GetFeature<CheckILR>();
+            return (new []{context.Position, e.GlobalRef(checkIlr.Pos), e.GlobalRef(checkIlr.Flags)}
+                .Select(x => context.Emitter.Copy(x))
+                .ToArray(), context.Emitter.Label());
         }
 
-        public static void Restore(this Context context, (Var, Label) savePoint)
+        public static void Restore(this Context context, (Var[] state, Label label) savePoint)
         {
+            var e = context.Emitter;
+            var checkIlr = context.GetFeature<CheckILR>();
             context.Emitter.Mark(savePoint.Item2);
-            context.Emitter.Copy(context.Position, savePoint.Item1);
+            context.Emitter.Copy(context.Position, savePoint.state[0]);
+            context.Emitter.Copy(e.GlobalRef(checkIlr.Pos), savePoint.state[1]);
+            context.Emitter.Copy(e.GlobalRef(checkIlr.Flags), savePoint.state[2]);
         }
 
         public static Var Peek(this Context context, int offset)
@@ -203,7 +211,8 @@ namespace Lexico
         }
 
         public static void Succeed(this Context context, Var? result) {
-            if (context.Result != null && result != null) {
+            // TODO: should void vars be allowed?
+            if (context.Result != null && result != null && context.Emitter.TypeOf(context.Result) != typeof(void)) {
                 context.Emitter.Copy(context.Result, result);
             }
             context.Succeed();

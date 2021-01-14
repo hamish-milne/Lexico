@@ -55,6 +55,7 @@ namespace Lexico
             e.Mark(loop);
             context.Advance(1);
             test(loopEnd);
+            e.Jump(loop);
             if (context.Success == null) {
                 e.Mark(loopEnd);
             }
