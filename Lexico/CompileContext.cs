@@ -209,7 +209,7 @@ namespace Lexico
 
             // TODO: Remove the 'is UnaryParser' check; instead don't trace on the recursion wrapper calls
             // TODO: Make sure that the Name info passes into UnaryParser
-            var doTrace = trace != null && !(child is UnaryParser);
+            var doTrace = trace != null && !(child is UnaryParser) && !child.Flags.HasFlag(ParserFlags.IgnoreInTrace);
             // In some cases we need to rewrite the result labels to add code at the end of parsing
             var childSuccess = doTrace ? Label() : onSuccess;
             var childFail = (doTrace || memo != null) ? Label() : onFail;
@@ -320,7 +320,7 @@ namespace Lexico
         {
             // TODO: Put trace stuff into general 'make block' function
             // Convert the gotos to a boolean return value
-            var doTrace = trace != null && source != null && !(source is UnaryParser);
+            var doTrace = trace != null && source != null && !(source is UnaryParser) && !source.Flags.HasFlag(ParserFlags.IgnoreInTrace);
             var end = Label(typeof(bool));
             var saveRefArgs = byRefResult == null ? (Expression)Empty()
                 : Block(Assign(byRefResult, Result), Assign(byRefPosition, Position));

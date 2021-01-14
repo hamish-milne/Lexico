@@ -208,20 +208,7 @@ namespace Lexico
     {
         private readonly Action<string> _onError;
 
-        public static Predicate<IParser> IgnoreRegexImpl => parser => parser is RegexImpl.Regex.Parser || parser is RegexImpl.SubstringParser || parser is RegexImpl.ConcatParser;
-        public static Predicate<IParser> IgnoreOptionalWhitespace => parser => parser is OptionalParser op && op.Child is WhitespaceParser;
-
-        public static IEnumerable<Predicate<IParser>> DefaultIgnoreRules => new[]
-        {
-            IgnoreRegexImpl,
-            IgnoreOptionalWhitespace
-        };
-
-        public UserTrace(Action<string> onError, List<Predicate<IParser>>? ignoreRules = null)
-        {
-            _onError = onError;
-            _parserIgnoreRules = ignoreRules ?? DefaultIgnoreRules.ToList();
-        }
+        public UserTrace(Action<string> onError) => _onError = onError;
 
         private TraceInstance? _trace;
         
@@ -238,25 +225,32 @@ namespace Lexico
             if (_trace.HasFinishedTrace) _trace = null;
         }
 
-        public bool ShowAlternativeErrorBranches { get; set; } = true;
-        public bool IgnoreBranchesThatConsumeNothing { get; set; } = true;
-        public bool IgnoreRootParser { get; set; } = true;
-        public bool ShowParserStack { get; set; } = true;
+        public bool ShowAlternativeErrorBranches { get; set; }
+        public bool ShowLineAfterError { get; set; }
+        public bool ShowParserStack { get; set; }
 
-        private readonly List<Predicate<IParser>> _parserIgnoreRules;
         private class TraceInstance : ITrace
         {
             private class ErrorBranch
             {
                 public ErrorBranch(Error rootError) => Errors = new List<Error> {rootError};
-
-                public bool IgnoreFurtherErrors { get; set; }
                 public IReadOnlyList<IParser> OuterParsers { get; set; } = Array.Empty<IParser>();
                 public List<Error> Errors { get; }
+
+                public IParser FirstTraceHeaderOrInnermostParser => Errors.FirstOrDefault(IsTraceHeader)?.Parser
+                                               ?? OuterParsers.FirstOrDefault(p => p.Flags.HasFlag(ParserFlags.TraceHeader))
+                                               ?? InnermostError.Parser;
+
+                private static bool IsTraceHeader(Error e) => e.Parser.Flags.HasFlag(ParserFlags.TraceHeader);
+                private static bool IsTraceHeader(IParser p) => p.Flags.HasFlag(ParserFlags.TraceHeader);
+
+                public IEnumerable<IParser> TraceHeaders => Errors.Where(IsTraceHeader).Select(e => e.Parser).Concat(OuterParsers.Where(IsTraceHeader));
+                
                 public Error InnermostError => Errors.First();
                 public Error OutermostError => Errors.Last();
+
                 public int TotalParsedCharacters => Errors.First().ErrorSegment.Start;
-                public int SuccessfullyParsedCharacters => TotalParsedCharacters - Errors.Last().ErrorSegment.Start;
+                public int SuccessfullyParsedCharacters => TotalParsedCharacters - OutermostError.ErrorSegment.Start;
             }
 
             private class Error
@@ -274,64 +268,60 @@ namespace Lexico
             public TraceInstance(UserTrace userTrace) => _userTrace = userTrace;
             public bool HasFinishedTrace { get; private set; }
 
-            private bool ParserShouldBeIgnored(IParser parser) => _userTrace._parserIgnoreRules.Any(rule => rule(parser));
-            
             private readonly UserTrace _userTrace;
             private readonly List<ErrorBranch> _errorsToLog = new List<ErrorBranch>();
             private readonly Stack<IParser> _parserStack = new Stack<IParser>();
-            private readonly Stack<int> _ignoreLevels = new Stack<int>();
             private ErrorBranch? _currentErrorBranch;
             private int _level;
 
             public void Push(IParser parser, string? name)
             {
                 _level++;
-                _parserStack.Push(parser);
 
-                if (ParserShouldBeIgnored(parser))
+                if (_currentErrorBranch != null)
                 {
-                    _ignoreLevels.Push(_level);
+                    _currentErrorBranch.OuterParsers = _parserStack.ToList();
+                    _currentErrorBranch = null;
                 }
-
-                _currentErrorBranch = null;
+                
+                _parserStack.Push(parser);
             }
 
             public void Pop(IParser parser, bool success, object? value, StringSegment text)
             {
-                _level--;
-                _parserStack.Pop();
-
-                if (_level <= 0) // We finished tracing
-                {
-                    FinalizeTrace();
-                    return;
-                }
-
-                if (_ignoreLevels.Count > 0 && _ignoreLevels.Peek() >= _level)
-                {
-                    _ignoreLevels.Pop();
-                }
-
                 // We're not on an error branch if we're succeeding
-                // Or if we're ignoring the current branch
-                if (success || _ignoreLevels.Count > 0)
+                if (success)
                 {
                     if (_currentErrorBranch != null)
                     {
                         _currentErrorBranch.OuterParsers = _parserStack.ToList();
                         _currentErrorBranch = null;
                     }
-                    return;
                 }
-
-                if (_currentErrorBranch == null)
+                else
                 {
-                    _currentErrorBranch = new ErrorBranch(new Error(parser, text));
-                    _errorsToLog.Add(_currentErrorBranch);
+                    if (_currentErrorBranch == null)
+                    {
+                        _currentErrorBranch = new ErrorBranch(new Error(parser, text));
+                        _errorsToLog.Add(_currentErrorBranch);
+                    }
+                    else
+                    {
+                        _currentErrorBranch.Errors.Add(new Error(parser, text));
+                    }
                 }
-                else if (!_currentErrorBranch.IgnoreFurtherErrors)
+                
+                _level--;
+                _parserStack.Pop();
+                
+                if (_level <= 0) // We finished tracing
                 {
-                    _currentErrorBranch.Errors.Add(new Error(parser, text));
+                    if (_currentErrorBranch != null)
+                    {
+                        _currentErrorBranch.OuterParsers = _parserStack.ToList();
+                        _currentErrorBranch = null;
+                    }
+                    FinalizeTrace();
                 }
             }
 
@@ -339,10 +329,8 @@ namespace Lexico
             {
                 if (_errorsToLog.Count <= 0) return;
                 var errorBranchesToLog = _errorsToLog
-                                         .Take(_userTrace.IgnoreRootParser ? _errorsToLog.Count - 1 : _errorsToLog.Count) // Root parser is always the last failure so remove it here
-                                         .OrderByDescending(branch => branch.TotalParsedCharacters)
-                                         .Where(branch => !_userTrace.IgnoreBranchesThatConsumeNothing || branch.SuccessfullyParsedCharacters > 0)
                                          .GroupBy(branch => branch.TotalParsedCharacters)
+                                         .OrderByDescending(grouping => grouping.Key)
                                          .ToArray();
                 if (errorBranchesToLog.Length < 1) return; // Can happen if all branches are filtered out
 
@@ -360,32 +348,29 @@ namespace Lexico
                     var innermostError = branch.InnermostError;
                     var lines = innermostError.ErrorSegment.String.Split('\n').Select(line => line.TrimEnd('\r')).ToArray();
                     var errorIndex = innermostError.ErrorSegment.Start;
-                    var errorLineNumber = innermostError.ErrorSegment.String.Take(errorIndex).Count(c => c == '\n');
-                    var (errorChar, errorLineStartIndex) = innermostError.ErrorSegment.String.Select((ch, idx) => (ch, idx)).Take(errorIndex).Reverse().FirstOrDefault(tuple => tuple.ch == '\n');
+                    var errorLineNumber = innermostError.ErrorSegment.String
+                                                        .Take(errorIndex)
+                                                        .Count(c => c == '\n');
+                    var (_, errorLineStartIndex) = innermostError.ErrorSegment.String
+                                                                         .Select((ch, idx) => (ch, idx))
+                                                                         .Take(errorIndex)
+                                                                         .Reverse()
+                                                                         .FirstOrDefault(tuple => tuple.ch == '\n');
                     var errorIndexOnLine = errorIndex - errorLineStartIndex;
-                    indent++;
 
-                    void AppendLineWithNumber(int number) => AppendLine($"{$"{number}:".PadLeft(4)} {lines[number]}");
-
-                    AppendLine();
-                    AppendLineWithNumber(errorLineNumber - 1);
+                    void AppendLineWithNumber(int number) => AppendLine($"{$"{number}: ".PadLeft(4)}{lines[number]}");
+                    
                     AppendLineWithNumber(errorLineNumber);
-                    AppendLine("^".PadLeft(errorIndexOnLine + 4));
-                    if (errorLineNumber < lines.Length - 1) AppendLineWithNumber(errorLineNumber + 1); // Append line after if the error isn't the last line in the source
-                    AppendLine();
-                    indent--;
-                }
+                    AppendLine("^".PadLeft(errorIndexOnLine + 5));
+                    if (_userTrace.ShowLineAfterError && errorLineNumber < lines.Length - 1) AppendLineWithNumber(errorLineNumber + 1); // Append line after if the error isn't the last line in the source
 
-                void AppendParserStack(bool showParserStack, ErrorBranch branch)
-                {
-                    if (!showParserStack) return;
-                    AppendLine($"Parser Stack for: {branch.InnermostError.Parser}");
+                    if (!_userTrace.ShowParserStack) return;
+                    AppendLine();
                     indent++;
                     foreach (var parser in branch.Errors.Select(err => err.Parser).Concat(branch.OuterParsers))
                     {
                         AppendLine(parser.ToString());
                     }
-                    AppendLine();
 
                     indent--;
                 }
@@ -395,28 +380,50 @@ namespace Lexico
                     var asArray = errorBranches.ToArray();
                     if (asArray.Length > 1)
                     {
-                        AppendLine($"Parsing failed ambiguously - could not tell between {asArray.Length} parsers that all failed at this location.");
-                        AppendLine($"Parsers attempted:    {string.Join("    ", asArray.Select(branch => branch.InnermostError.Parser))}");
-                        AppendLine("Source text:");
-                        AppendErrorWithCaret(asArray[0]); // When branches are grouped it's because they failed in the same place so we only append it once
+                        var firstBranch = asArray[0];
+                        var innerErrorSegment = firstBranch.InnermostError.ErrorSegment;
+
+                        var endOfString = innerErrorSegment.Start >= innerErrorSegment.String.Length;
+
+                        if (!endOfString)
+                        {
+                            var errorStartCharcter = innerErrorSegment.String[innerErrorSegment.Start];
+                            AppendLine($"Unexpected token '{errorStartCharcter}'");
+                        }
+                        else
+                        {
+                            AppendLine("Unexpected end of string");
+                        }
+                        
+                        AppendErrorWithCaret(firstBranch);
+                        AppendLine($"{asArray.Length} parsers were tried and failed here:");
                         indent++;
                         foreach (var errorBranch in asArray)
                         {
-                            AppendParserStack(_userTrace.ShowParserStack, errorBranch);
+                            AppendLine($"Expected {errorBranch.InnermostError.Parser} while parsing {errorBranch.FirstTraceHeaderOrInnermostParser}");
                         }
-
-                        indent--;
                     }
                     else
                     {
-                        var errorBranch = asArray[0];
-                        AppendLine($"Parsing failed - expected {errorBranch.InnermostError.Parser}");
-                        AppendLine("Source text:");
-                        AppendErrorWithCaret(errorBranch);
                         indent++;
-                        AppendParserStack(_userTrace.ShowParserStack, errorBranch);
-                        indent--;
+                        var errorBranch = asArray[0];
+                        var innerErrorSegment = errorBranch.InnermostError.ErrorSegment;
+                        var endOfString = innerErrorSegment.Start >= innerErrorSegment.String.Length;
+
+                        if (!endOfString)
+                        {
+                            var errorStartCharcter = innerErrorSegment.String[innerErrorSegment.Start];
+                            AppendLine($"Expected {errorBranch.InnermostError.Parser} but got '{errorStartCharcter}' while parsing {errorBranch.FirstTraceHeaderOrInnermostParser}");
+                        }
+                        else
+                        {
+                            AppendLine($"Expected {errorBranch.InnermostError.Parser} but string ended while parsing {errorBranch.FirstTraceHeaderOrInnermostParser}");
+                        }
+                        AppendErrorWithCaret(errorBranch);
                     }
+
+                    indent--;
+                    AppendLine();
                 }
 
                 AppendGroup(errorBranchesToLog[0]);

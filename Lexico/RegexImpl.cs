@@ -11,7 +11,7 @@ namespace Lexico.RegexImpl
 {
     public abstract class Pattern
     {
-        public abstract IParser Create();
+        public abstract IParser Create(IConfig config, ParserFlags flags);
     }
 
     [CompileFlags(CompileFlags.CheckImmediateLeftRecursion | CompileFlags.Memoizing)]
@@ -22,68 +22,64 @@ namespace Lexico.RegexImpl
         [Term] Alternation pattern;
         [Optional, Literal("$")] string endAnchor;
 
-        public class Parser : IParser
+        public class Parser : ParserBase
         {
-            private IParser _inner;
+            private readonly IParser _inner;
             private readonly string _pattern;
 
-            public Parser(IParser inner, string pattern)
+            public Parser(IParser inner, string pattern, IConfig config,  ParserFlags flags) : base(config, flags)
             {
                 _inner = inner;
                 _pattern = pattern;
             }
 
-            public Type OutputType => _inner.OutputType;
-            public void Compile(ICompileContext context) => _inner.Compile(context);
+            public override Type OutputType => _inner.OutputType;
+            public override void Compile(ICompileContext context) => _inner.Compile(context);
             public override string ToString() => $"Regex pattern: {_pattern}";
         }
 
-        public IParser Create(string regexPattern) => new Parser(new SubstringParser(endAnchor == null
-                                                                                              ? pattern.Create()
-                                                                                              : new ConcatParser(pattern.Create(), EOFParser.Instance)),
-                                                                      regexPattern); // TODO: Don't pass in regexPattern, retrieve it by unparsing
+        public IParser Create(string regexPattern, IConfig config, ParserFlags flags) => new Parser(new SubstringParser(endAnchor == null
+                                                                                                                             ? pattern.Create(config, flags)
+                                                                                                                             : new ConcatParser(config, flags, pattern.Create(config, flags), new EOFParser(config, flags)),
+                                                                                                                        config,
+                                                                                                                        flags),
+                                                                                                     regexPattern, config, flags); // TODO: Don't pass in regexPattern, retrieve it by unparsing
 
-        public static IParser Parse(string pattern) => Lexico.Parse<Regex>(pattern).Create(pattern);
+        public static IParser Parse(string pattern, IConfig config, ParserFlags flags) => Lexico.Parse<Regex>(pattern).Create(pattern, config, flags);
     }
 
-    public class SubstringParser : IParser
+    public class SubstringParser : ParserBase
     {
-        public SubstringParser(IParser inner)
-        {
-            this.inner = inner;
-        }
+        public SubstringParser(IParser inner, IConfig config, ParserFlags flags) : base(config, flags) => this._inner = inner;
 
-        private readonly IParser inner;
+        private readonly IParser _inner;
 
-        public Type OutputType => typeof(string);
+        public override Type OutputType => typeof(string);
 
-        public void Compile(ICompileContext context)
+        public override void Compile(ICompileContext context)
         {
             var start = context.Cache(context.Position);
-            context.Child(inner, null, null, null, context.Failure);
+            context.Child(_inner, null, null, null, context.Failure);
             context.Succeed(Call(context.String, nameof(string.Substring), Type.EmptyTypes, start, Subtract(context.Position, start)));
         }
     }
 
-    public class ConcatParser : IParser
+    public class ConcatParser : ParserBase
     {
-        public ConcatParser(params IParser[] children)
-        {
-            this.children = children;
-        }
+        public ConcatParser(IConfig config, ParserFlags flags, params IParser[] children) : base(config, flags) => this._children = children;
 
-        public Type OutputType => typeof(string);
+        public override Type OutputType => typeof(string);
 
-        private readonly IParser[] children;
+        private readonly IParser[] _children;
 
-        public void Compile(ICompileContext context)
+        public override void Compile(ICompileContext context)
         {
             Expression? sb = null;
             if (context.Result != null)
             {
                 sb = context.Cache(New(typeof(StringBuilder)));
             }
-            foreach (var c in children)
+            foreach (var c in _children)
             {
                 Expression? output = null;
                 if (sb != null)
@@ -114,8 +110,8 @@ namespace Lexico.RegexImpl
         [SeparatedBy("|")]
         public List<Sequence> Items { get; } = new List<Sequence>();
 
-        public IParser Create() => Items.Count == 1 ? Items[0].Create()
-            : new AlternativeParser(typeof(string), Items.Select(s => s.Create()));
+        public IParser Create(IConfig config, ParserFlags flags) => Items.Count == 1 ? Items[0].Create(config, flags)
+                                                                       : new AlternativeParser(typeof(string), config, flags, Items.Select(s => s.Create(config, flags)));
     }
 
     public class Sequence
@@ -123,8 +119,8 @@ namespace Lexico.RegexImpl
         [Term]
         public List<Pattern> Items { get; } = new List<Pattern>();
 
-        public IParser Create() => Items.Count == 1 ? Items[0].Create()
-            : new ConcatParser(Items.Select(s => s.Create()).ToArray());
+        public IParser Create(IConfig config, ParserFlags flags) => Items.Count == 1 ? Items[0].Create(config, flags)
+                                                            : new ConcatParser(config, flags, Items.Select(s => s.Create(config, flags)).ToArray());
     }
 
     public class Repeat : Pattern
@@ -133,7 +129,7 @@ namespace Lexico.RegexImpl
         [CharSet("*+")] char repeater;
         [Optional, Literal("?")] string lazy; // TODO: Support 'lazy' qualifiers
 
-        public override IParser Create() => new RepeatParser(typeof(string), inner.Create(), null, repeater == '+' ? 1 : 0, null);
+        public override IParser Create(IConfig config, ParserFlags flags) => new RepeatParser(typeof(string), inner.Create(config, flags), null, repeater == '+' ? 1 : 0, null, config, flags);
     }
 
     public class Optional : Pattern
@@ -141,7 +137,7 @@ namespace Lexico.RegexImpl
         [Term] Pattern inner;
         [Literal("?")] Unnamed _;
 
-        public override IParser Create() => new OptionalParser(inner.Create());
+        public override IParser Create(IConfig config, ParserFlags flags) => new OptionalParser(inner.Create(config, flags), config, flags);
     }
 
     public class Group : Pattern
@@ -151,7 +147,7 @@ namespace Lexico.RegexImpl
         [Term] Alternation inner;
         [Literal(")")] Unnamed __;
 
-        public override IParser Create() => inner.Create();
+        public override IParser Create(IConfig config, ParserFlags flags) => inner.Create(config, flags);
     }
 
     public abstract class GroupModifier { }
@@ -194,10 +190,7 @@ namespace Lexico.RegexImpl
         public abstract char Value { get; }
         public CharIntervalSet Ranges => new CharIntervalSet().Include(Value, Value);
 
-        public override IParser Create()
-        {
-            return new CharSet(new CharIntervalSet().Include(Value, Value));
-        }
+        public override IParser Create(IConfig config, ParserFlags flags) => new CharSet(new CharIntervalSet().Include(Value, Value), config, flags);
     }
 
     public class HexChar : SingleChar
@@ -240,14 +233,14 @@ namespace Lexico.RegexImpl
         [Literal("\\")] Unnamed _;
         [CharRange("19")] char number;
 
-        public override IParser Create() => throw new NotSupportedException();
+        public override IParser Create(IConfig config, ParserFlags flags) => throw new NotSupportedException();
     }
 
     public class WordBoundary : Pattern
     {
         [Literal("\\b")] Unnamed _;
 
-        public override IParser Create()
+        public override IParser Create(IConfig config, ParserFlags flags)
         {
             throw new NotImplementedException();
         }
@@ -278,7 +271,7 @@ namespace Lexico.RegexImpl
             }
         }
 
-        public override IParser Create() => new CharSet(Ranges);
+        public override IParser Create(IConfig config, ParserFlags flags) => new CharSet(Ranges, config, flags);
     }
 
     public class SimpleEscape : SingleChar
@@ -309,8 +302,8 @@ namespace Lexico.RegexImpl
         [Optional, CharRange("09"), Repeat] string max;
         [Literal("}")] Unnamed ___;
 
-        public override IParser Create() => new RepeatParser(typeof(string), inner.Create(), null,
-            int.Parse(min), max == null ? default(int?) : int.Parse(max));
+        public override IParser Create(IConfig config, ParserFlags flags) => new RepeatParser(typeof(string), inner.Create(config, flags), null,
+                                                                                              int.Parse(min), max == null ? default(int?) : int.Parse(max), config, flags);
     }
 
     public struct SetItem
@@ -326,14 +319,14 @@ namespace Lexico.RegexImpl
         [Term] List<SetItem> items; // TODO: Min 1 or 0 here?
         [Literal("]")] Unnamed __;
 
-        public override IParser Create()
+        public override IParser Create(IConfig config, ParserFlags flags)
         {
             var set = new CharIntervalSet(items.Select(i => i.item.Ranges));
             if (invert != null)
             {
                 set.Invert();
             }
-            return new CharSet(set);
+            return new CharSet(set, config, flags);
         }
     }
 
@@ -341,7 +334,7 @@ namespace Lexico.RegexImpl
     {
         [Literal(".")] Unnamed _;
 
-        public override IParser Create() => CharParser.Instance;
+        public override IParser Create(IConfig config, ParserFlags flags) => new CharParser(config, flags);
     }
 
     public class RawChar : SingleChar

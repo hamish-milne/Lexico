@@ -1,6 +1,5 @@
 using System;
 using System.Reflection;
-using static System.Linq.Expressions.Expression;
 
 namespace Lexico
 {
@@ -8,22 +7,19 @@ namespace Lexico
     {
         public override int Priority => 100;
 
-        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
-        {
-            return new NotParser(child(null));
-        }
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => new NotParser(config, child(null), ParserFlags);
     }
 
-    public class NotParser : IParser
+    public class NotParser : ParserBase
     {
-        public NotParser(IParser inner) => this.inner = inner;
-        private readonly IParser inner;
-        public Type OutputType => typeof(void);
+        public NotParser(IConfig config, IParser inner, ParserFlags flags) : base(config, flags) => this._inner = inner;
+        private readonly IParser _inner;
+        public override Type OutputType => typeof(void);
 
-        public void Compile(ICompileContext context)
+        public override void Compile(ICompileContext context)
         {
             var savePoint = context.Save();
-            context.Child(inner, null, context.Result, context.Failure, savePoint);
+            context.Child(_inner, null, context.Result, context.Failure, savePoint);
             context.Restore(savePoint);
             context.Succeed();
         }

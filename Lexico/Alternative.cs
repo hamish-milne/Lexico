@@ -19,7 +19,7 @@ namespace Lexico
         public Type[]? Options { get; }
         public override int Priority => 10;
         public override IParser Create(MemberInfo member, ChildParser child, IConfig config) =>
-            new AlternativeParser(member.GetMemberType(), Options);
+            new AlternativeParser(member.GetMemberType(), config, ParserFlags, Options);
 
         public override bool AddDefault(MemberInfo member)
             => member is Type t && (t.IsInterface || t.IsAbstract);
@@ -37,14 +37,14 @@ namespace Lexico
             var prop = member.ReflectedType.GetProperty(Property, Instance | Public | NonPublic)
                        ?? throw new ArgumentException($"Could not find `{Property}` on {member.ReflectedType}");
             return prop.GetValue(Activator.CreateInstance(member.ReflectedType, true)) is IEnumerable<Type> options
-                       ? new AlternativeParser(member.GetMemberType(), options)
+                       ? new AlternativeParser(member.GetMemberType(), config, ParserFlags, options)
                        : throw new ArgumentNullException($"Found `{Property}` is not IEnumerable<Type>");
         }
     }
 
-    internal class AlternativeParser : IParser
+    internal class AlternativeParser : ParserBase
     {
-        public AlternativeParser(Type baseType, IEnumerable<Type>? optionTypes = null)
+        public AlternativeParser(Type baseType, IConfig config, ParserFlags flags, IEnumerable<Type>? optionTypes = null) : base(config, flags)
         {
             OutputType = baseType;
             if (optionTypes != null)
@@ -59,27 +59,27 @@ namespace Lexico
                 optionTypes = baseType.Assembly.GetTypes().Where(t => (t.IsClass || t.IsValueType) && !t.IsAbstract && baseType.IsAssignableFrom(t));
             }
 
-            options = optionTypes.Select(ParserCache.GetParser).ToArray();
-            if (options.Length == 0)
+            _options = optionTypes.Select(ParserCache.GetParser).ToArray();
+            if (_options.Length == 0)
             {
-                throw new ArgumentException($"{baseType} has no concrete options");
+                throw new ArgumentException($"{baseType} has no concrete flags");
             }
         }
 
-        public AlternativeParser(Type outputType, IEnumerable<IParser> options)
+        public AlternativeParser(Type outputType, IConfig config, ParserFlags flags, IEnumerable<IParser> alternatives) : base(config, flags)
         {
             OutputType = outputType;
-            this.options = options.ToArray();
+            this._options = alternatives.ToArray();
         }
 
-        private readonly IParser[] options;
+        private readonly IParser[] _options;
 
-        public Type OutputType { get; }
+        public override Type OutputType { get; }
 
-        public void Compile(ICompileContext context)
+        public override void Compile(ICompileContext context)
         {
             var success = context.Success ?? Label();
-            foreach (var option in options)
+            foreach (var option in _options)
             {
                 var savePoint = context.Save();
                 context.Child(option, null, context.Result, success, savePoint);

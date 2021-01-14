@@ -18,7 +18,7 @@ namespace Lexico
 
         private readonly CharIntervalSet set;
 
-        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => new CharSet(set);
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => new CharSet(set, config, ParserFlags);
     }
 
     public class CharRangeAttribute : TermAttribute
@@ -36,7 +36,7 @@ namespace Lexico
 
         private readonly CharIntervalSet set;
 
-        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => new CharSet(set);
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => new CharSet(set, config, ParserFlags);
     }
 
     public class CharIntervalSet
@@ -142,21 +142,21 @@ namespace Lexico
         public override string ToString() => string.Join(",", intervals.Select(t => $"{t.Item1}-{t.Item2}"));
     }
 
-    public class CharSet : IParser
+    public class CharSet : ParserBase
     {
-        public CharSet(CharIntervalSet set) {
-            ranges = set.Intervals.ToArray();
+        public CharSet(CharIntervalSet set, IConfig config, ParserFlags flags) : base(config, flags) {
+            _ranges = set.Intervals.ToArray();
         }
 
-        private readonly (char start, char end)[] ranges;
+        private readonly (char start, char end)[] _ranges;
 
-        public Type OutputType => typeof(char);
+        public override Type OutputType => typeof(char);
 
-        public void Compile(ICompileContext context)
+        public override void Compile(ICompileContext context)
         {
             context.Append(IfThen(GreaterThanOrEqual(context.Position, context.Length), Goto(context.Failure)));
             var success = Label();
-            foreach (var (start, end) in ranges) {
+            foreach (var (start, end) in _ranges) {
                 if (start == end) {
                     context.Append(IfThen(Equal(context.Peek(0), Constant(start)), Goto(success)));
                 } else {
@@ -173,6 +173,6 @@ namespace Lexico
         }
 
         // TODO: Use single chars for ToString
-        public override string ToString() => string.Join(",", ranges.Select(t => $"{t.start}-{t.end}"));
+        public override string ToString() => string.Join(",", _ranges.Select(t => $"{t.start}-{t.end}"));
     }
 }

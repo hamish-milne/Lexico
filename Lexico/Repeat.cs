@@ -38,16 +38,16 @@ namespace Lexico
                 _ => listType.GetGenericArguments()[0]
             };
             return new RepeatParser(member.GetMemberType(), child(elementType), null,
-                Min > 0 ? Min : default(int?), Max < Int32.MaxValue ? Max : default(int?));
+                Min > 0 ? Min : default(int?), Max < Int32.MaxValue ? Max : default(int?), config, ParserFlags);
         }
 
         public override bool AddDefault(MemberInfo member)
             => member is Type t && typeof(ICollection).IsAssignableFrom(t);
     }
 
-    internal class RepeatParser : IParser
+    internal class RepeatParser : ParserBase
     {
-        public RepeatParser(Type outputType, IParser element, IParser? separator, int? min, int? max)
+        public RepeatParser(Type outputType, IParser element, IParser? separator, int? min, int? max, IConfig config, ParserFlags flags) : base(config, flags)
         {
             if (outputType != typeof(string)
                 && !typeof(IList).IsAssignableFrom(outputType)
@@ -56,7 +56,7 @@ namespace Lexico
             }
             OutputType = outputType ?? throw new ArgumentNullException(nameof(outputType));
             Element = element;
-            this.separator = separator;
+            this._separator = separator;
             Min = min;
             Max = max;
         }
@@ -64,11 +64,11 @@ namespace Lexico
         public int? Min { get; }
         public int? Max { get; }
         public IParser Element { get; }
-        private readonly IParser? separator;
+        private readonly IParser? _separator;
 
-        public Type OutputType { get; }
+        public override Type OutputType { get; }
 
-        public void Compile(ICompileContext context)
+        public override void Compile(ICompileContext context)
         {
             Expression? list = null;
             if (context.Result != null) {
@@ -123,8 +123,8 @@ namespace Lexico
             }
             // Subsequent elements can fail
             var loopFail = context.Save();
-            if (separator != null) {
-                context.Child(separator, "(Separator)", null, null, loopFail);
+            if (_separator != null) {
+                context.Child(_separator, "(Separator)", null, null, loopFail);
             }
             context.Child(Element, null, output, null, loopFail);
             AddToList();

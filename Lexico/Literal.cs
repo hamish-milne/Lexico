@@ -15,10 +15,7 @@ namespace Lexico
         public override int Priority => 30;
         public abstract IParser Create(MemberInfo member, IConfig config);
 
-        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
-        {
-            return Create(member, config);
-        }
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => Create(member, config);
     }
 
     /// <summary>
@@ -31,9 +28,7 @@ namespace Lexico
         }
         public string Value { get; }
 
-        public override IParser Create(MemberInfo member, IConfig config) {
-            return new LiteralParser(Value);
-        }
+        public override IParser Create(MemberInfo member, IConfig config) => new LiteralParser(Value, config, ParserFlags);
     }
 
     /// <summary>
@@ -42,31 +37,27 @@ namespace Lexico
     /// </summary>
     public class IndirectLiteralAttribute : TerminalAttribute
     {
-        public IndirectLiteralAttribute(string property) {
-            Property = property ?? throw new ArgumentNullException(nameof(property));
-        }
+        public IndirectLiteralAttribute(string property) => Property = property ?? throw new ArgumentNullException(nameof(property));
         public string Property { get; }
 
         public override IParser Create(MemberInfo member, IConfig config) {
             var prop = member.ReflectedType.GetProperty(Property, Instance | Public | NonPublic)
                 ?? throw new ArgumentException($"Could not find `{Property}` on {member.ReflectedType}");
-            return new LiteralParser((string)prop.GetValue(Activator.CreateInstance(member.ReflectedType, true)));
+            return new LiteralParser((string)prop.GetValue(Activator.CreateInstance(member.ReflectedType, true)), config, ParserFlags);
         }
     }
 
-    internal class LiteralParser : IParser
+    internal class LiteralParser : ParserBase
     {
-        public LiteralParser(string literal) {
-            this.literal = literal;
-        }
+        public LiteralParser(string literal, IConfig config, ParserFlags flags) : base(config, flags) => this.literal = literal;
         private readonly string literal;
 
-        public Type OutputType => typeof(string);
+        public override Type OutputType => typeof(string);
 
-        public void Compile(ICompileContext context)
+        public override void Compile(ICompileContext context)
         {
             context.Append(IfThen(LessThan(Subtract(context.Length, context.Position), Constant(literal.Length)), Goto(context.Failure)));
-            for (int i = 0; i < literal.Length; i++) {
+            for (var i = 0; i < literal.Length; i++) {
                 var c = Constant(literal[i]);
                 context.Append(IfThen(NotEqual(c, context.Peek(i)), Goto(context.Failure)));
             }

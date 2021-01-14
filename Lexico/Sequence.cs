@@ -16,17 +16,17 @@ namespace Lexico
     {
         public override int Priority => 0;
         public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
-            => new SequenceParser(member.GetMemberType(), null);
+            => new SequenceParser(member.GetMemberType(), null, config, ParserFlags);
 
         public override bool AddDefault(MemberInfo member) => member is Type;
     }
 
-    internal class SequenceParser : IParser
+    internal class SequenceParser : ParserBase
     {
-        public SequenceParser(Type type, IParser? separator)
+        public SequenceParser(Type type, IParser? separator, IConfig config, ParserFlags flags) : base(config, flags)
         {
             this.Type = type ?? throw new ArgumentNullException(nameof(type));
-            this.separator = separator;
+            this._separator = separator;
             var typeHierachy = new List<Type>();
             var current = type;
             while (current != null && current != typeof(object))
@@ -63,7 +63,7 @@ namespace Lexico
             if (members.Count == 0) {
                 throw new ArgumentException($"Sequence {type} has no Terms");
             }
-            this.members = members
+            this._members = members
                 .Select(m => (
                     m.GetMemberType() == typeof(Unnamed) ? null : m,
                     ParserCache.GetParser(m)
@@ -72,12 +72,12 @@ namespace Lexico
         }
 
         public Type Type { get; }
-        private readonly (MemberInfo? member, IParser parser)[] members;
-        private readonly IParser? separator;
+        private readonly (MemberInfo? member, IParser parser)[] _members;
+        private readonly IParser? _separator;
 
-        public Type OutputType => Type;
+        public override Type OutputType => Type;
 
-        public void Compile(ICompileContext context)
+        public override void Compile(ICompileContext context)
         {
             // Get the current value. If it's not the right type, make a new one.
             // If we're not saving the value, no need to do this
@@ -93,11 +93,11 @@ namespace Lexico
                 }
             }
             bool first = true;
-            foreach (var (member, parser) in members)
+            foreach (var (member, parser) in _members)
             {
                 // If not the first item, add a Separator
-                if (!first && separator != null) {
-                    context.Child(separator, "(Separator)", null, null, context.Failure);
+                if (!first && _separator != null) {
+                    context.Child(_separator, "(Separator)", null, null, context.Failure);
                 }
                 first = false;
                 // Match the item and, if we're saving the value, write it back to the member in question

@@ -19,6 +19,13 @@ namespace Lexico
         T Get<T>(T defaultValue);
     }
 
+    public class DefaultConfig : IConfig
+    {
+        private DefaultConfig() {}
+        public static DefaultConfig Instance { get; } = new DefaultConfig();
+        public T Get<T>(T defaultValue) => defaultValue;
+    }
+
     /// <summary>
     /// Base interface of IConfig`1 used as a marker
     /// </summary>
