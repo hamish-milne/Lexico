@@ -38,7 +38,7 @@ namespace Lexico
             // TODO: Opt-in for fast whitespace
             Action<Label> multilineTest = label => {
                 e.Compare(context.Position, CompareOp.GreaterOrEqual, context.Length, label);
-                e.Compare(context.Peek(0), CompareOp.GreaterOrEqual, space, label);
+                e.Compare(context.Peek(0), CompareOp.Greater, space, label);
             };
             Action<Label> test;
             if (multiline) {

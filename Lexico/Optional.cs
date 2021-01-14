@@ -52,6 +52,9 @@ namespace Lexico
             var skip = context.Success == null ? e.Label() : null;
             context.Child(child, null, context.Result, context.Success ?? skip, savePoint.label);
             context.Restore(savePoint);
+            if (context.CanWriteResult && context.Result != null) {
+                e.Copy(context.Result, e.Default(e.TypeOf(context.Result)));
+            }
             if (skip != null) {
                 e.Mark(skip);
             }

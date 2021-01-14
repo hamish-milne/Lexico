@@ -71,6 +71,7 @@ namespace Lexico
         GlobalVar Global(object? initial, Type type);
         Var GlobalRef(GlobalVar global);
         Var Default(Type type);
+        Var Create(Type type);
         void Set(Var variable, object value);
         void Increment(Var variable, int amount);
         void Jump(Label label);

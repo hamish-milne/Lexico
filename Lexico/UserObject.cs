@@ -16,8 +16,7 @@ namespace Lexico
 
         public void Compile(Context context)
         {
-            context.Succeed();
-            // context.Succeed(context.UserObject);
+            context.Succeed(context.Emitter.GlobalRef(context.GetFeature<UserObject>().Global));
         }
     }
 }

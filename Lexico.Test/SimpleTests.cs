@@ -27,7 +27,7 @@ namespace Lexico.Test
         [Fact]
         public void RepeatTest()
         {
-            Assert.True(Lexico.TryParse<RepeatTestObj>("abcabcabc", out var outObj));
+            Assert.True(Lexico.TryParse<RepeatTestObj>("abcabcabc", out var outObj, new ConsoleTrace()));
             Assert.Equal(3, outObj.Items.Count);
         }
 
@@ -62,7 +62,7 @@ namespace Lexico.Test
             [Literal("]")] Unnamed __;
 
             public int Count() {
-                return next == null ? 0 : (next.Count() + 1);
+                return next == null ? 1 : (next.Count() + 1);
             }
         }
 
@@ -101,6 +101,17 @@ namespace Lexico.Test
         {
             Assert.True(Lexico.TryParse<Expression>("1+2*3", out var outObj, new ConsoleTrace()));
             Assert.Equal(7, outObj.Eval());
+        }
+
+        class RegexTestObj {
+            [Regex("[a-zA-Z0-9]*")] public string str;
+        }
+
+        [Fact]
+        public void RegexTest()
+        {
+            Assert.True(Lexico.TryParse<RegexTestObj>("abc012DEF", out var outObj, new ConsoleTrace{Verbose = true}));
+            Assert.Equal("abc012DEF", outObj.str);
         }
 
         

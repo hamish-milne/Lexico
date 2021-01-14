@@ -23,7 +23,7 @@ namespace Lexico.RegexImpl
             ? pattern.Create()
             : new ConcatParser(pattern.Create(), EOFParser.Instance));
 
-        public static IParser Parse(string pattern) => Lexico.Parse<Regex>(pattern, new ConsoleTrace()).Create();
+        public static IParser Parse(string pattern) => Lexico.Parse<Regex>(pattern).Create();
     }
 
     public class SubstringParser : IParser

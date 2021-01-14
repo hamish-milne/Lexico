@@ -7,14 +7,16 @@ namespace Lexico
         public Context Before(IParser parser, Context context, ref bool skipContent)
         {
             // TODO: More robust system for ignoring in trace
-            if (parser is RecursiveParser) {
-                return context;
-            }
+            // if (parser is RecursiveParser) {
+            //     return context;
+            // }
             var e = context.Emitter;
             if (TraceObj == null) {
                 TraceObj = e.Global(null, typeof(ITrace));
             }
-            e.Call(e.GlobalRef(TraceObj), nameof(ITrace.Push), e.Const(parser), e.Const(context.Name ?? "", typeof(string)));
+            e.Call(e.GlobalRef(TraceObj), nameof(ITrace.Push), e.Const(parser),
+                context.Name == null ? e.Default(typeof(string)) : e.Const(context.Name, typeof(string))
+            );
             return new Context(
                 context.Emitter,
                 context.Result ?? (parser.OutputType == typeof(void) ? null : e.Var(null, parser.OutputType)),

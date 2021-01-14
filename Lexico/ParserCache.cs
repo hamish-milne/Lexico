@@ -60,7 +60,7 @@ namespace Lexico
             context.GetFeature<Recursive>().CallFromPlaceholder(Inner, context);
         }
 
-        public override string ToString() => inner == null ? "Placeholder" : inner.ToString();
+        public override string ToString() => inner == null ? "Placeholder" : (inner.ToString() + " (recursive)");
     }
 
     public static class ReflectionExtensions

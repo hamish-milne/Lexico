@@ -58,13 +58,14 @@ namespace Lexico
             var features = new List<Feature> {
                 new String(),
                 new UserObject(),
-                new Recursive(),
                 new StartPosition(),
-                new CheckILR()
             };
             if (trace != null) {
                 features.Add(new Trace());
             }
+            // TODO: Make feature ordering more robust
+            features.Add(new Recursive());
+            features.Add(new CheckILR());
             return entry.TryParse(ParserCache.GetParser(outputType), features, str, out output, trace, userObject);
         }
     }

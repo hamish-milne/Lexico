@@ -83,7 +83,7 @@ namespace Lexico
                         e.Copy(list, e.Create(OutputType));
                         e.Mark(skip);
                     }
-                } else {
+                } else if (typeof(IList).IsAssignableFrom(OutputType)) {
                     list = context.Result;
                 }
             }
@@ -126,6 +126,9 @@ namespace Lexico
             if (separator != null) {
                 context.Child(separator, "(Separator)", null, null, loopFail.label);
             }
+            if (output != null) {
+                e.Copy(output, e.Default(Element.OutputType));
+            }
             context.Child(Element, null, output, null, loopFail.label);
             AddToList();
             e.Jump(loop);
@@ -134,7 +137,7 @@ namespace Lexico
 
             // Loop ends; decide whether to succeed or not
             if (Min.HasValue) {
-                e.Compare(count, CompareOp.LessOrEqual, e.Const(Min.Value), context.Failure);
+                e.Compare(count, CompareOp.Less, e.Const(Min.Value), context.Failure);
             }
             if (OutputType == typeof(string) && list != null) {
                 context.Succeed(e.Call(list, nameof(StringBuilder.ToString)));

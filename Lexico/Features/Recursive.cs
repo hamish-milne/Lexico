@@ -28,7 +28,7 @@ namespace Lexico
         public void After(IParser parser, Context original, Context modified)
         {
             if (IsRecursive(parser)) {
-                original.Emitter.CallRecursive(modified.Emitter, original.Result, original.Success, original.Failure);
+                original.Emitter.CallRecursive(programs[parser], original.Result, original.Success, original.Failure);
             }
         }
 

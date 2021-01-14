@@ -66,6 +66,7 @@ namespace Lexico
             Unbox,
             Call,
             Construct,
+            Create,
             ObjEqual,
             CheckType,
             IntEqual,
@@ -252,6 +253,9 @@ namespace Lexico
                     }
                     oValues[inst.result] = ((ConstructorInfo)method).Invoke(args);
                 }
+                    break;
+                case OpCode.Create:
+                    oValues[inst.result] = Activator.CreateInstance(typeTable[inst.lhs]);
                     break;
                 case OpCode.ObjCopy:
                     oValues[inst.result] = oValues[inst.lhs];
@@ -708,7 +712,7 @@ namespace Lexico
             if (type == typeof(void)) {
                 return vVoid;
             }
-            var found = pool.FirstOrDefault(x => x.type == type);
+            var found = frame == null ? pool.FirstOrDefault(x => x.type == type) : null;
             if (found == null) {
                 found = new RuntimeVar(type, IsInt(type) ? iStackSize++ : oStackSize++, false);
             } else {
@@ -808,8 +812,22 @@ namespace Lexico
             if (IsInt(type) || !type.IsValueType) {
                 return new RuntimeVar(type, 0, true);
             } else {
-                return Const(Activator.CreateInstance(type), type);
+                return Create(type);
             }
+        }
+
+        public Var Create(Type type)
+        {
+            if (IsInt(type)) {
+                throw new ArgumentException();
+            }
+            var v = Allocate(type);
+            code.Add(new Operation {
+                opcode = OpCode.Create,
+                lhs = GetTypeIndex(v),
+                result = v.index
+            });
+            return v;
         }
     }
 }
