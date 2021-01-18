@@ -13,7 +13,6 @@ namespace Lexico.Test
 
         public class ClassWithConcreteUserObject
         {
-            [Term] public int Number;
             [UserObject] public float UserObject;
         }
         
@@ -44,8 +43,8 @@ namespace Lexico.Test
         [Fact]
         public void WrongUserObjectTypeThrowsCastException()
         {
-            var myUserObject = 3;
-            Assert.Throws<InvalidCastException>(() => Lexico.Parse<ClassWithConcreteUserObject>("5", userObject: myUserObject));
+            var myUserObject = "3";
+            Assert.Throws<ArgumentException>(() => Lexico.Parse<ClassWithConcreteUserObject>("5", userObject: myUserObject));
         }
     }
 }
