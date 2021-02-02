@@ -39,11 +39,17 @@ namespace Lexico.RegexImpl
 
         public void Compile(Context context)
         {
+            context.PopCachedResult();
             var e = context.Emitter;
             var start = context.GetFeature<StartPosition>().Get();
-            context.Child(inner, null, null, null, context.Failure);
-            if (context.Result != null) {
-                context.Succeed(e.Call(context.Sequence, nameof(string.Substring), start, e.Difference(context.Position, start)));
+            context.Child(inner, null, ResultMode.None, null, context.Failure);
+            if (context.HasResult()) {
+                e.Load(context.Sequence);
+                e.Load(start);
+                e.Load(context.Position);
+                e.Load(start);
+                e.Operate(BOP.Subtract);
+                e.Call(typeof(string).GetMethod(nameof(string.Substring)));
             } else {
                 context.Succeed();
             }
@@ -65,7 +71,7 @@ namespace Lexico.RegexImpl
         {
             foreach (var c in children)
             {
-                context.Child(c, null, null, null, context.Failure);
+                context.Child(c, null, ResultMode.None, null, context.Failure);
             }
             context.Succeed();
         }

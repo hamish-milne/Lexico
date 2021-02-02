@@ -49,13 +49,14 @@ namespace Lexico
         {
             var e = context.Emitter;
             var savePoint = context.Save();
-            var skip = context.Success == null ? e.Label() : null;
-            context.Child(child, null, context.Result, context.Success ?? skip, savePoint.label);
+            var skip = context.Success ?? e.Label();
+            context.Child(child, null, context.Result, skip, savePoint.label);
             context.Restore(savePoint);
-            if (context.CanWriteResult && context.Result != null) {
-                e.Copy(context.Result, e.Default(e.TypeOf(context.Result)));
+            context.PopCachedResult();
+            if (context.HasResult()) {
+                e.Null();
             }
-            if (skip != null) {
+            if (skip != context.Success) {
                 e.Mark(skip);
             }
             context.Succeed();

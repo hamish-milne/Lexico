@@ -5,54 +5,60 @@ using System.Reflection;
 
 namespace Lexico
 {
-    public class Label {
+    // public class Label {
 
-    }
+    // }
 
-    public abstract class Var {
-    }
+    // public abstract class Var {
+    // }
 
-    public abstract class GlobalVar {
+    // public abstract class GlobalVar {
 
-    }
+    // }
 
-    public enum CompareOp {
-        Equal,
-        NotEqual,
-        Less,
-        Greater,
-        LessOrEqual,
-        GreaterOrEqual
-    }
+    // public enum CompareOp {
+    //     Equal,
+    //     NotEqual,
+    //     Less,
+    //     Greater,
+    //     LessOrEqual,
+    //     GreaterOrEqual
+    // }
 
-    enum BinaryOp {
-        Add,
-        Subtract
+    // enum BinaryOp {
+    //     Add,
+    //     Subtract
+    // }
+
+    public enum ResultMode
+    {
+        None,
+        Mutate,
+        Modify,
+        Output
     }
 
     public class Context
     {
-        public Context(Emitter emitter, Var? result, Label? success, Label failure, string? name, IEnumerable<Feature> features, bool canWriteResult)
+        public Context(Emitter emitter, ResultMode resultMode, Label? success, Label failure, string? name, IEnumerable<Feature> features)
         {
-            Result = result;
+            Result = resultMode;
             Failure = failure;
             Success = success;
             Emitter = emitter;
             Name = name;
             Features = features;
-            CanWriteResult = canWriteResult;
         }
 
-        public Var Length => Emitter.GlobalRef(this.GetFeature<String>().Length);
-        public Var Position => Emitter.GlobalRef(this.GetFeature<String>().Position);
-        public Var Sequence => Emitter.GlobalRef(this.GetFeature<String>().Sequence);
-        public Var? Result { get; }
+        public Var Length => this.GetFeature<String>().Length;
+        public Var Position => this.GetFeature<String>().Position;
+        public Var Sequence => this.GetFeature<String>().Sequence;
+        public ResultMode Result { get; }
         public Label Failure { get; }
         public Label? Success { get; }
         public Emitter Emitter { get; }
         public string? Name { get; }
         public IEnumerable<Feature> Features { get; }
-        public bool CanWriteResult { get; }
     }
 
     public interface Feature
@@ -61,34 +67,34 @@ namespace Lexico
         void After(IParser parser, Context original, Context modified);
     }
 
-    public interface Emitter
-    {
-        Type TypeOf(Var stackSlot);
-        Label Label();
-        Var Const(object value, Type type);
-        Var Var(object? initial, Type type);
-        void Copy(Var dst, Var src);
-        GlobalVar Global(object? initial, Type type);
-        Var GlobalRef(GlobalVar global);
-        Var Default(Type type);
-        Var Create(Type type);
-        void Set(Var variable, object value);
-        void Increment(Var variable, int amount);
-        void Jump(Label label);
-        void Compare(Var lhs, CompareOp op, Var rhs, Label label);
-        void CheckType(Var lhs, Type type, Label label);
-        void CheckFlag(Var var, int flag, bool compare, Label label);
-        void SetFlag(Var var, int flag, bool value);
-        Var Difference(Var lhs, Var rhs);
-        Var Call(Var? obj, MethodBase method, params Var[] arguments);
-        void Mark(Label label);
-        Var Index(Var sequence, Var index);
-        Var Load(Var obj, MemberInfo member);
-        void Store(Var obj, MemberInfo member, Var value);
-        IDisposable Frame();
-        Context MakeRecursive(Type outputType);
-        void CallRecursive(Emitter callee, Var? output, Label? onSuccess, Label onFailure);
-    }
+    // public interface Emitter
+    // {
+    //     Type TypeOf(Var stackSlot);
+    //     Label Label();
+    //     Var Const(object value, Type type);
+    //     Var Var(object? initial, Type type);
+    //     void Copy(Var dst, Var src);
+    //     GlobalVar Global(object? initial, Type type);
+    //     Var GlobalRef(GlobalVar global);
+    //     Var Default(Type type);
+    //     Var Create(Type type);
+    //     void Set(Var variable, object value);
+    //     void Increment(Var variable, int amount);
+    //     void Jump(Label label);
+    //     void Compare(Var lhs, CompareOp op, Var rhs, Label label);
+    //     void CheckType(Var lhs, Type type, Label label);
+    //     void CheckFlag(Var var, int flag, bool compare, Label label);
+    //     void SetFlag(Var var, int flag, bool value);
+    //     Var Difference(Var lhs, Var rhs);
+    //     Var Call(Var? obj, MethodBase method, params Var[] arguments);
+    //     void Mark(Label label);
+    //     Var Index(Var sequence, Var index);
+    //     Var Load(Var obj, MemberInfo member);
+    //     void Store(Var obj, MemberInfo member, Var value);
+    //     IDisposable Frame();
+    //     Context MakeRecursive(Type outputType);
+    //     void CallRecursive(Emitter callee, Var? output, Label? onSuccess, Label onFailure);
+    // }
 
 
 
@@ -98,7 +104,7 @@ namespace Lexico
         {
             var e = context.Emitter;
             var checkIlr = context.GetFeature<CheckILR>();
-            return (new []{context.Position, e.GlobalRef(checkIlr.Pos), e.GlobalRef(checkIlr.Flags)}
+            return (new []{context.Position, checkIlr.Pos, checkIlr.Flags}
                 .Select(x => context.Emitter.Copy(x))
                 .ToArray(), context.Emitter.Label());
         }
@@ -113,54 +119,71 @@ namespace Lexico
             context.Emitter.Copy(e.GlobalRef(checkIlr.Flags), savePoint.state[2]);
         }
 
-        public static Var Peek(this Context context, int offset)
+        public static void Peek(this Context context, int offset)
         {
-            if (offset == 0) {
-                return context.Emitter.Index(context.Sequence, context.Position);
-            } else {
-                var tmp = context.Emitter.Copy(context.Position);
-                context.Emitter.Increment(tmp, offset);
-                return context.Emitter.Index(context.Sequence, tmp);
+            var e = context.Emitter;
+            e.Load(context.Position);
+            if (offset != 0) {
+                e.Const(offset);
+                e.Operate(BOP.Subtract);
             }
+            e.Operate(UOP.Index);
         }
 
         public static void RequireSymbols(this Context context, int count)
         {
-            using var _ = context.Emitter.Frame();
-            context.Emitter.Compare(
-                context.GetSymbolsRemaining(),
-                CompareOp.Less,
-                count,
-                context.Failure);
+            var e = context.Emitter;
+            context.GetSymbolsRemaining();
+            e.Const(count);
+            e.Jump(CMP.Less, context.Failure);
         }
 
-        public static Var GetSymbolsRemaining(this Context context) {
-            return context.Emitter.Difference(context.Length, context.Position);
+        public static void GetSymbolsRemaining(this Context context) {
+            var e = context.Emitter;
+            e.Load(context.Length);
+            e.Load(context.Position);
+            e.Operate(BOP.Subtract);
         }
 
         public static void Advance(this Context context, int count)
         {
-            context.Emitter.Increment(context.Position, count);
+            var e = context.Emitter;
+            e.Load(context.Position);
+            e.Const(count);
+            e.Operate(BOP.Add);
+            e.Store(context.Position);
         }
 
-        public static void Compare(this Emitter emitter, Var variable, CompareOp op, object value, Label label) {
-            emitter.Compare(variable, op, emitter.Const(value), label);
+        public static void PopCachedResult(this Context context)
+        {
+            switch (context.Result) {
+                case ResultMode.Modify:
+                case ResultMode.Mutate:
+                    context.Emitter.Pop();
+                    break;
+            }
         }
 
-        public static void Child(this Context context, IParser parser, string? name, Var? result, Label? success, Label failure) {
-            Child(context, parser, name, result, success, failure, result != null);
+        public static bool HasResult(this Context context) {
+            return context.Result switch {
+                ResultMode.None => false,
+                _ => true
+            };
         }
 
-        public static void Child(this Context context, IParser parser, string? name, Var? result, Label? success, Label failure, bool canWriteResult) {
-            using var _ = context.Emitter.Frame();
+        // public static void Compare(this Emitter emitter, Var variable, CompareOp op, object value, Label label) {
+        //     emitter.Compare(variable, op, emitter.Const(value), label);
+        // }
+
+        public static void Child(this Context context, IParser parser, string? name, ResultMode result, Label? success, Label failure) {
+            // using var _ = context.Emitter.Frame();
             new Context(
                 context.Emitter,
                 result,
                 success,
                 failure,
                 name,
-                context.Features,
-                canWriteResult).CompileWithFeatures(parser);
+                context.Features).CompileWithFeatures(parser);
         }
 
         public static void CompileWithFeatures(this Context context, IParser parser)
@@ -182,41 +205,41 @@ namespace Lexico
             }
         }
 
-        public static Var Call(this Emitter emitter, Var obj, string method, params Var[] arguments)
-        {
-            var methodInfo = emitter.TypeOf(obj).GetMethod(method, arguments.Select(emitter.TypeOf).ToArray()) ?? throw new ArgumentException("Method not found");
-            return emitter.Call(obj, methodInfo, arguments);
-        }
+        // public static Var Call(this Emitter emitter, Var obj, string method, params Var[] arguments)
+        // {
+        //     var methodInfo = emitter.TypeOf(obj).GetMethod(method, arguments.Select(emitter.TypeOf).ToArray()) ?? throw new ArgumentException("Method not found");
+        //     return emitter.Call(obj, methodInfo, arguments);
+        // }
         
         public static T GetFeature<T>(this Context context) where T : Feature {
             return context.Features.OfType<T>().First();
         }
 
-        public static Var Const(this Emitter emitter, object value) => emitter.Const(value, value.GetType());
+        // public static Var Const(this Emitter emitter, object value) => emitter.Const(value, value.GetType());
 
-        public static Var Create(this Emitter emitter, Type type, params Var[] arguments)
-        {
-            if (type.IsValueType && arguments.Length == 0) {
-                return emitter.Default(type);
-            }
-            var ctor = type.GetConstructor(arguments.Select(emitter.TypeOf).ToArray()) ?? throw new ArgumentException("Constructor not found");
-            return emitter.Call(null, ctor, arguments);
-        }
+        // public static Var Create(this Emitter emitter, Type type, params Var[] arguments)
+        // {
+        //     if (type.IsValueType && arguments.Length == 0) {
+        //         return emitter.Default(type);
+        //     }
+        //     var ctor = type.GetConstructor(arguments.Select(emitter.TypeOf).ToArray()) ?? throw new ArgumentException("Constructor not found");
+        //     return emitter.Call(null, ctor, arguments);
+        // }
 
-        public static Var Copy(this Emitter emitter, Var variable)
-        {
-            var v = emitter.Var(null, emitter.TypeOf(variable));
-            emitter.Copy(v, variable);
-            return v;
-        }
+        // public static Var Copy(this Emitter emitter, Var variable)
+        // {
+        //     var v = emitter.Var(null, emitter.TypeOf(variable));
+        //     emitter.Copy(v, variable);
+        //     return v;
+        // }
 
-        public static void Succeed(this Context context, Var? result) {
-            // TODO: should void vars be allowed?
-            if (context.Result != null && result != null && context.Emitter.TypeOf(context.Result) != typeof(void)) {
-                context.Emitter.Copy(context.Result, result);
-            }
-            context.Succeed();
-        }
+        // public static void Succeed(this Context context, Var? result) {
+        //     // TODO: should void vars be allowed?
+        //     if (context.Result != null && result != null && context.Emitter.TypeOf(context.Result) != typeof(void)) {
+        //         context.Emitter.Copy(context.Result, result);
+        //     }
+        //     context.Succeed();
+        // }
 
         
         public static void Succeed(this Context context) {

@@ -55,11 +55,11 @@ namespace Lexico
             OutputType = outputType ?? throw new ArgumentNullException(nameof(outputType));
             Element = element;
             this.separator = separator;
-            Min = min;
+            Min = min ?? 1;
             Max = max;
         }
 
-        public int? Min { get; }
+        public int Min { get; }
         public int? Max { get; }
         public IParser Element { get; }
         private readonly IParser? separator;
@@ -69,81 +69,93 @@ namespace Lexico
         public void Compile(Context context)
         {
             var e = context.Emitter;
-            Var? list = null;
-            if (context.Result != null) {
-                if (context.CanWriteResult) {
-                    if (OutputType == typeof(string)) {
-                        list = e.Create(typeof(StringBuilder));
-                    } else if (OutputType.IsArray) {
-                        list = e.Create(typeof(List<>).MakeGenericType(Element.OutputType));
-                    } else {
-                        list = context.Result;
-                        var skip = e.Label();
-                        e.Compare(list, CompareOp.NotEqual, e.Default(typeof(object)), skip);
-                        e.Copy(list, e.Create(OutputType));
-                        e.Mark(skip);
-                    }
-                } else if (typeof(IList).IsAssignableFrom(OutputType)) {
-                    list = context.Result;
+            Type listType;
+            if (OutputType == typeof(string)) {
+                listType = typeof(StringBuilder);
+            } else if (OutputType.IsArray) {
+                // TODO: Does this work on AOT?
+                listType = typeof(List<>).MakeGenericType(Element.OutputType);
+            } else {
+                listType = OutputType;
+            }
+            switch (context.Result) {
+            case ResultMode.Mutate:
+                if (listType != OutputType) {
+                    throw new Exception("Repeat requires a mutable list type or a writable field/property");
+                } else {
+                    e.Dup();
+                    e.Call(listType.GetMethod(nameof(IList.Clear)));
                 }
-            }
-            if (list != null && OutputType != typeof(string)) {
-                e.Call(list, nameof(IList.Clear));
-            }
-            // Make a var to store the result before adding to the list
-            var output = context.Result == null ? null : e.Var(null, Element.OutputType);
-            var count = e.Var(0, typeof(int));
-            void AddToList() {
-                if (list != null) {
-                    if (OutputType == typeof(string)) {
-                        e.Call(list, nameof(StringBuilder.Append), output!);
-                    } else {
-                        e.Call(list, nameof(IList.Add), output!);
+                break;
+            case ResultMode.Modify:
+                if (listType != OutputType) {
+                    e.Pop();
+                    e.Create(listType);
+                } else {
+                    e.Dup();
+                    using (e.If(CMP.IsNull)) {
+                        e.Pop();
+                        e.Create(OutputType);
                     }
                 }
-                if (Min.HasValue || Max.HasValue) {
-                    e.Increment(count, 1);
-                }
+                break;
+            case ResultMode.Output:
+                e.Create(listType);
+                break;
             }
 
+            var count = e.Local(typeof(int));
             // Begin the loop
             var loop = e.Label();
             var loopEnd = e.Label();
+            var startLoop = e.Label();
 
-            // First element
-            context.Child(Element, null, output, null, loopEnd);
-            AddToList();
-
+            e.Jump(startLoop);
             e.Mark(loop);
-            if (output != null) {
-                e.Copy(output, e.Default(Element.OutputType));
-            }
             if (Max.HasValue) {
-                e.Compare(count, CompareOp.GreaterOrEqual, e.Const(Max.Value), loopEnd);
+                e.Load(count);
+                e.Const(Max.Value);
+                e.Jump(CMP.GreaterOrEqual, loopEnd);
             }
             // Subsequent elements can fail
             var loopFail = context.Save();
             if (separator != null) {
-                context.Child(separator, "(Separator)", null, null, loopFail.label);
+                context.Child(separator, "(Separator)", ResultMode.None, null, loopFail.label);
             }
-            if (output != null) {
-                e.Copy(output, e.Default(Element.OutputType));
+            e.Mark(startLoop);
+            if (context.HasResult()) {
+                e.Dup();
             }
-            context.Child(Element, null, output, null, loopFail.label);
-            AddToList();
+            context.Child(Element, null, ResultMode.Output, null, loopFail.label);
+            if (context.HasResult()) {
+                if (OutputType == typeof(string)) {
+                    e.Call(typeof(StringBuilder).GetMethod(nameof(StringBuilder.Append)));
+                } else {
+                    e.Call(listType.GetMethod(nameof(IList.Add)));
+                }
+            }
+            e.Increment(count, 1);
             e.Jump(loop);
             context.Restore(loopFail);
             e.Mark(loopEnd);
 
             // Loop ends; decide whether to succeed or not
-            if (Min.HasValue) {
-                e.Compare(count, CompareOp.Less, e.Const(Min.Value), context.Failure);
+            e.Load(count);
+            e.Const(Min);
+            using (e.If(CMP.Less)) {
+                if (context.HasResult()) {
+                    e.Pop();
+                }
+                context.Fail();
             }
-            if (OutputType == typeof(string) && list != null) {
-                context.Succeed(e.Call(list, nameof(StringBuilder.ToString)));
-            } else {
-                context.Succeed(list);
+            if (context.HasResult()) {
+                if (OutputType == typeof(string)) {
+                    e.Call(typeof(StringBuilder).GetMethod(nameof(StringBuilder.ToString)));
+                } else if (OutputType.IsArray) {
+                    e.Call(listType.GetMethod(nameof(List<object>.ToArray)));
+                }
             }
+            context.Succeed();
         }
 
         public override string ToString() => $"[{Element}...]";

@@ -102,9 +102,12 @@ namespace Lexico
         public void Compile(Context context)
         {
             var e = context.Emitter;
-            var match = e.Var(null!, typeof(string));
-            context.Child(regex, null, match, null, context.Failure);
-            context.Succeed(e.Call(null, parseMethod, match, e.Const(styles)));
+            context.Child(regex, null, context.HasResult() ? ResultMode.Output : ResultMode.None, null, context.Failure);
+            if (context.HasResult()) {
+                e.Const(styles);
+                e.Call(parseMethod);
+            }
+            context.Succeed();
         }
 
         public override string ToString() => $"Number ({OutputType.Name})";

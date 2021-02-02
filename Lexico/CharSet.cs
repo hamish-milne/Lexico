@@ -153,24 +153,35 @@ namespace Lexico
 
         public void Compile(Context context)
         {
+            context.PopCachedResult();
             var e = context.Emitter;
             context.RequireSymbols(1);
             var success = e.Label();
-            var c = context.Peek(0);
+            context.Peek(0);
             foreach (var (start, end) in ranges) {
                 if (start == end) {
-                    e.Compare(c, CompareOp.Equal, start, success);
+                    e.Dup();
+                    e.Const(start);
+                    e.Jump(CMP.Equal, success);
                 } else {
-                    var skip = e.Label();
-                    e.Compare(c, CompareOp.Less, start, skip);
-                    e.Compare(c, CompareOp.LessOrEqual, end, success);
-                    e.Mark(skip);
+                    e.Dup();
+                    e.Const(start);
+                    e.Compare(CMP.GreaterOrEqual);
+                    context.Peek(0);
+                    e.Const(end);
+                    e.Compare(CMP.LessOrEqual);
+                    e.Operate(BOP.And);
+                    e.Jump(true, success);
                 }
             }
+            e.Pop();
             e.Jump(context.Failure);
             e.Mark(success);
+            if (!context.HasResult()) {
+                e.Pop();
+            }
             context.Advance(1);
-            context.Succeed(c);
+            context.Succeed();
         }
 
         // TODO: Use single chars for ToString

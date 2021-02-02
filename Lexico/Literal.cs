@@ -70,11 +70,15 @@ namespace Lexico
             var e = context.Emitter;
             context.RequireSymbols(literal.Length);
             for (int i = 0; i < literal.Length; i++) {
-                using var _ = e.Frame();
-                e.Compare(context.Peek(i), CompareOp.NotEqual, literal[i], context.Failure);
+                context.Peek(i);
+                e.Const(literal[i]);
+                e.Jump(CMP.NotEqual, context.Failure);
             }
             context.Advance(literal.Length);
-            context.Succeed(e.Const(literal));
+            if (context.HasResult()) {
+                e.Const(literal);
+            }
+            context.Succeed();
         }
 
         public override string ToString() => $"`{literal}`";

@@ -84,11 +84,11 @@ namespace Lexico
         public void Compile(Context context)
         {
             if (prefix != null) {
-                context.Child(prefix, "(Prefix)", null, null, context.Failure);
+                context.Child(prefix, "(Prefix)", ResultMode.None, null, context.Failure);
             }
             context.Child(inner, null, context.Result, null, context.Failure);
             if (suffix != null) {
-                context.Child(suffix, "(Suffix)", null, null, context.Failure);
+                context.Child(suffix, "(Suffix)", ResultMode.None, null, context.Failure);
             }
             context.Succeed();
         }

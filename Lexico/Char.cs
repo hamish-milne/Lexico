@@ -22,9 +22,13 @@ namespace Lexico
 
         public void Compile(Context context)
         {
+            context.PopCachedResult();
             context.RequireSymbols(1);
+            if (context.HasResult()) {
+                context.Peek(0);
+            }
             context.Advance(1);
-            context.Succeed(context.Peek(-1));
+            context.Succeed();
         }
     }
 }

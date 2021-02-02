@@ -37,7 +37,9 @@ namespace Lexico
         public void Compile(Context context)
         {
             var e = context.Emitter;
-            e.Compare(context.Position, CompareOp.Less, context.Length, context.Failure);
+            e.Load(context.Position);
+            e.Load(context.Length);
+            e.Jump(CMP.Less, context.Failure);
             context.Succeed();
         }
     }
@@ -71,7 +73,8 @@ namespace Lexico
         public void Compile(Context context)
         {
             var e = context.Emitter;
-            e.Compare(context.Position, CompareOp.Greater, e.Const(0), context.Failure);
+            e.Load(context.Position);
+            e.Jump(false, context.Failure);
             context.Succeed();
         }
     } 

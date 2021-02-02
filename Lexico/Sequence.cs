@@ -84,34 +84,61 @@ namespace Lexico
             var e = context.Emitter;
             // Get the current value. If it's not the right type, make a new one.
             // If we're not saving the value, no need to do this
-            if (context.Result != null && context.CanWriteResult)
-            {
-                var skip = e.Label();
-                e.CheckType(context.Result, OutputType, skip);
-                e.Copy(context.Result, e.Create(OutputType));
-                e.Mark(skip);
+            switch (context.Result) {
+            case ResultMode.Output:
+                e.Create(OutputType);
+                break;
+            case ResultMode.Modify:
+                e.Dup();
+                e.As(OutputType);
+                using (e.If(CMP.IsNull)) {
+                    e.Pop();
+                    e.Create(OutputType);
+                }
+                break;
+            case ResultMode.Mutate:
+            case ResultMode.None:
+                break;
             }
             bool first = true;
             foreach (var (member, parser) in members)
             {
                 // If not the first item, add a Separator
                 if (!first && separator != null) {
-                    context.Child(separator, "(Separator)", null, null, context.Failure);
+                    context.Child(separator, "(Separator)", ResultMode.None, null, context.Failure);
                 }
                 first = false;
                 // Match the item and, if we're saving the value, write it back to the member in question
-                if (context.Result != null && member != null) {
-                    var mValue = e.Load(context.Result, member);
-                    context.Child(parser, member.Name, mValue, null, context.Failure, IsWritable(member));
+                if (context.HasResult() && member != null) {
                     if (IsWritable(member)) {
-                        e.Store(context.Result, member, mValue);
+                        e.Dup();
+                    }
+                    e.Dup();
+                    if (member is FieldInfo f) {
+                        e.LoadField(f);
+                    } else if (member is PropertyInfo p) {
+                        e.Call(p.GetGetMethod());
+                    }
+                    context.Child(parser, member.Name,
+                        IsWritable(member) ? ResultMode.Modify : ResultMode.Mutate,
+                        null, context.Failure);
+                    if (IsWritable(member)) {
+                        if (member is FieldInfo f1) {
+                            e.StoreField(f1);
+                        } else if (member is PropertyInfo p) {
+                            e.Call(p.GetSetMethod());
+                        }
+                    } else {
+                        e.Pop();
                     }
                 } else {
-                    context.Child(parser, null, null, null, context.Failure);
+                    context.Child(parser, null, ResultMode.None, null, context.Failure);
                 }
             }
             if (CheckZeroLength) {
-                e.Compare(context.GetFeature<StartPosition>().Get(), CompareOp.Equal, context.Position, context.Failure);
+                e.Load(context.GetFeature<StartPosition>().Get());
+                e.Load(context.Position);
+                e.Jump(CMP.Equal, context.Failure);
             }
             context.Succeed();
         }

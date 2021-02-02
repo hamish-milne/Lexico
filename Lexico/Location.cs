@@ -16,7 +16,10 @@ namespace Lexico
 
         public void Compile(Context context)
         {
-            context.Succeed(context.Position);
+            if (context.HasResult()) {
+                context.Emitter.Load(context.Position);
+            }
+            context.Succeed();
         }
     }
 }

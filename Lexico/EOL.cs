@@ -28,15 +28,16 @@ namespace Lexico
         public void Compile(Context context)
         {
             var e = context.Emitter;
-            var success = e.Label();
+            var skip = e.Label();
+            context.Peek(0);
+            e.Const('\r');
+            e.Jump(CMP.NotEqual, skip);
+            context.Advance(1);
+            e.Mark(skip);
             context.RequireSymbols(1);
-            e.Compare(context.Peek(0), CompareOp.Equal, '\n', success);
-            e.Compare(context.Peek(0), CompareOp.NotEqual, '\r', context.Failure);
-            context.Advance(1);
-            e.Compare(context.GetSymbolsRemaining(), CompareOp.LessOrEqual, 0, success);
-            e.Compare(context.Peek(0), CompareOp.NotEqual, '\n', success);
-            context.Advance(1);
-            e.Mark(success);
+            context.Peek(0);
+            e.Const('\n');
+            e.Jump(CMP.NotEqual, context.Failure);
             context.Advance(1);
             context.Succeed();
         }
