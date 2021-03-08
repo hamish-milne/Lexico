@@ -5,18 +5,14 @@ namespace Lexico
 {
     public class UserObjectAttribute : TerminalAttribute
     {
-        public override IParser Create(MemberInfo member, IConfig config) => UserObjectWriter.Instance;
+        public override IParser Create(MemberInfo member, IConfig config) => new UserObjectWriter(config, ParserFlags);
     }
 
-    internal class UserObjectWriter : IParser
+    internal class UserObjectWriter : ParserBase
     {
-        private UserObjectWriter() {}
-        public static IParser Instance { get; } = new UserObjectWriter();
-        public Type OutputType => typeof(object);
+        public UserObjectWriter(IConfig config, ParserFlags flags) : base(config, flags) {}
+        public override Type OutputType => typeof(object);
 
-        public void Compile(ICompileContext context)
-        {
-            context.Succeed(context.UserObject);
-        }
+        public override void Compile(ICompileContext context) => context.Succeed(context.UserObject);
     }
 }

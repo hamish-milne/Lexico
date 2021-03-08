@@ -19,7 +19,7 @@ namespace Lexico
         public Type[]? Options { get; }
         public override int Priority => 10;
         public override IParser Create(MemberInfo member, ChildParser child, IConfig config) =>
-            new AlternativeParser(member.GetMemberType(), Options);
+            new AlternativeParser(member.GetMemberType(), config, ParserFlags, Options);
 
         public override bool AddDefault(MemberInfo member)
             => member is Type t && (t.IsInterface || t.IsAbstract);
@@ -40,18 +40,19 @@ namespace Lexico
             var prop = ReflectedType.GetProperty(Property, Instance | Public | NonPublic)
                        ?? throw new ArgumentException($"Could not find `{Property}` on {ReflectedType}");
             return prop.GetValue(Activator.CreateInstance(ReflectedType, true)) is IEnumerable<Type> options
-                       ? new AlternativeParser(member.GetMemberType(), options)
+                       ? new AlternativeParser(member.GetMemberType(), config, ParserFlags, options)
                        : throw new ArgumentNullException($"Found `{Property}` is not IEnumerable<Type>");
         }
     }
 
-    internal class AlternativeParser : IParser
+    internal class AlternativeParser : ParserBase
     {
-        public AlternativeParser(Type baseType, IEnumerable<Type>? optionTypes = null)
+        public AlternativeParser(Type baseType, IConfig config, ParserFlags flags, IEnumerable<Type>? optionTypes = null) : base(config, flags)
         {
             OutputType = baseType;
             if (optionTypes != null)
             {
+                optionTypes = optionTypes.ToArray();
                 if (baseType != typeof(Unnamed))
                     foreach (var type in optionTypes)
                     {
@@ -63,28 +64,29 @@ namespace Lexico
                 optionTypes = baseType.Assembly.GetTypes().Where(t => (t.IsClass || t.IsValueType) && !t.IsAbstract && baseType.IsAssignableFrom(t));
             }
 
-            options = optionTypes.Select(ParserCache.GetParser).ToArray();
-            if (options.Length == 0)
+            // ReSharper disable once PossibleMultipleEnumeration
+            _options = optionTypes.Select(ParserCache.GetParser).ToArray();
+            if (_options.Length == 0)
             {
-                throw new ArgumentException($"{baseType} has no concrete options");
+                throw new ArgumentException($"{baseType} has no concrete flags");
             }
         }
 
-        public AlternativeParser(Type outputType, IEnumerable<IParser> options)
+        public AlternativeParser(Type outputType, IConfig config, ParserFlags flags, IEnumerable<IParser> alternatives) : base(config, flags)
         {
             OutputType = outputType;
-            this.options = options.ToArray();
+            _options = alternatives.ToArray();
         }
 
-        private readonly IParser[] options;
+        private readonly IParser[] _options;
 
-        public Type OutputType { get; }
+        public override Type OutputType { get; }
 
-        public void Compile(ICompileContext context)
+        public override void Compile(ICompileContext context)
         {
             var success = context.Success ?? Label();
             var cut = context.Cache(Constant(false));
-            foreach (var option in options)
+            foreach (var option in _options)
             {
                 var savePoint = context.Save();
                 context.Child(option, null, context.Result, success, savePoint, cut);
@@ -107,23 +109,20 @@ namespace Lexico
     {
         public override int Priority => 200;
 
-        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
-        {
-            return new CutParser(child(null));
-        }
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => new CutParser(child(null), config, ParserFlags);
     }
 
-    internal class CutParser : IParser
+    internal class CutParser : ParserBase
     {
         private readonly IParser previous;
-        public CutParser(IParser previous)
+        public CutParser(IParser previous, IConfig config, ParserFlags parserFlags) : base(config, parserFlags)
         {
             this.previous = previous;
         }
 
-        public Type OutputType => previous.OutputType;
+        public override Type OutputType => previous.OutputType;
 
-        public void Compile(ICompileContext context)
+        public override void Compile(ICompileContext context)
         {
             if (context.Cut == null) {
                 previous.Compile(context);

@@ -5,20 +5,14 @@ namespace Lexico
 {
     public class PassAttribute : TerminalAttribute
     {
-        public override IParser Create(MemberInfo member, IConfig config)
-        {
-            return Pass.Instance;
-        }
+        public override IParser Create(MemberInfo member, IConfig config) => new Pass(config, ParserFlags);
     }
 
-    internal class Pass : IParser
+    internal class Pass : ParserBase
     {
-        public static IParser Instance { get; } = new Pass();
-        public Type OutputType => typeof(void);
+        public Pass(IConfig config, ParserFlags flags) : base(config, flags) { }
+        public override Type OutputType => typeof(void);
 
-        public void Compile(ICompileContext context)
-        {
-            context.Succeed();
-        }
+        public override void Compile(ICompileContext context) => context.Succeed();
     }
 }

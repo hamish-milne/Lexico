@@ -5,18 +5,13 @@ namespace Lexico
 {
     public class LocationAttribute : TerminalAttribute
     {
-        public override IParser Create(MemberInfo member, IConfig config) => LocationWriter.Instance;
+        public override IParser Create(MemberInfo member, IConfig config) => new LocationWriter(config, ParserFlags);
     }
 
-    internal class LocationWriter : IParser
+    internal class LocationWriter : ParserBase
     {
-        private LocationWriter() {}
-        public static IParser Instance { get; } = new LocationWriter();
-        public Type OutputType => typeof(int);
-
-        public void Compile(ICompileContext context)
-        {
-            context.Succeed(context.Position);
-        }
+        public LocationWriter(IConfig config, ParserFlags flags) : base(config, flags) {}
+        public override Type OutputType => typeof(int);
+        public override void Compile(ICompileContext context) => context.Succeed(context.Position);
     }
 }

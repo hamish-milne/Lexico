@@ -7,19 +7,16 @@ namespace Lexico
     {
         public override int Priority => 100;
 
-        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
-        {
-            return new LookAheadParser(child(null));
-        }
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => new LookAheadParser(child(null), config, ParserFlags);
     }
 
-    public class LookAheadParser : IParser
+    public class LookAheadParser : ParserBase
     {
-        public LookAheadParser(IParser inner) => this.inner = inner;
+        public LookAheadParser(IParser inner, IConfig config, ParserFlags parserFlags) : base(config, parserFlags) => this.inner = inner;
         private readonly IParser inner;
-        public Type OutputType => typeof(void);
+        public override Type OutputType => typeof(void);
 
-        public void Compile(ICompileContext context)
+        public override void Compile(ICompileContext context)
         {
             var savePoint = context.Save();
             context.Child(inner, null, context.Result, savePoint, context.Failure);

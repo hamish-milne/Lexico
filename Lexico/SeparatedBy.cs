@@ -22,9 +22,11 @@ namespace Lexico
 
         private readonly Type? separatorType;
         private readonly string? separatorString;
+        
+        public ParserFlags SeparatorFlags { get; set; }
 
         protected virtual IParser GetSeparator(IConfig config) => separatorType == null
-            ? new LiteralParser(separatorString!)
+            ? new LiteralParser(separatorString!, config, SeparatorFlags)
             : ParserCache.GetParser(separatorType);
 
         public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
@@ -32,8 +34,8 @@ namespace Lexico
             var c = child(null);
             var sep = GetSeparator(config);
             return c switch {
-                RepeatParser r => new RepeatParser(r.OutputType, r.Element, sep, r.Min, r.Max),
-                SequenceParser s => new SequenceParser(s.Type, sep, s.CheckZeroLength),
+                RepeatParser r => new RepeatParser(r.OutputType, r.Element, sep, r.Min, r.Max, config, c.Flags),
+                SequenceParser s => new SequenceParser(s.Type, sep, s.CheckZeroLength, config, c.Flags),
                 _ => throw new ArgumentException($"Separator not valid on {c}")
             };
         }
@@ -48,6 +50,6 @@ namespace Lexico
 
         // TODO: Not this. Maybe GetParserUncached that accepts IConfig?
         protected override IParser GetSeparator(IConfig config) =>
-            new OptionalParser(new WhitespaceParser(config));
+            new OptionalParser(new WhitespaceParser(config, ParserFlags), config, ParserFlags);
     }
 }

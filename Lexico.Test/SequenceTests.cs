@@ -25,10 +25,10 @@ namespace Lexico.Test
         [Fact]
         public void OrderOfSequenceCorrect()
         {
-            Assert.True(Lexico.TryParse(" 5 ", out NonGenericSequence _, new ConsoleTrace()));
+            Assert.True(Lexico.TryParse(" 5 ", out NonGenericSequence _, new ConsoleDeveloperTrace()));
         }
 
         [Fact]
-        public void OrderOfGenericSequenceCorrect() => Lexico.Parse<GenericWrapper>(" 5 ", new ConsoleTrace());
+        public void OrderOfGenericSequenceCorrect() => Lexico.Parse<GenericWrapper>(" 5 ", new ConsoleDeveloperTrace());
     }
 }

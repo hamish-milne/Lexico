@@ -15,9 +15,9 @@ namespace Lexico
         public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
         {
             if (member == typeof(EOF)) {
-                return EOFParser.Instance;
+                return new EOFParser(config, ParserFlags);
             }
-            return new SurroundParser(null, child(null), EOFParser.Instance);
+            return new SurroundParser(null, child(null), new EOFParser(config, ParserFlags), config, ParserFlags);
         }
     }
 
@@ -26,16 +26,15 @@ namespace Lexico
     /// </summary>
     [TopLevel] public struct EOF {}
 
-    internal class EOFParser : IParser
+    internal class EOFParser : ParserBase
     {
-        public static EOFParser Instance { get; } = new EOFParser();
-        private EOFParser() {}
+        public EOFParser(IConfig config, ParserFlags flags) : base(config, flags) {}
 
         public override string ToString() => "EOF";
 
-        public Type OutputType => typeof(void);
+        public override Type OutputType => typeof(void);
 
-        public void Compile(ICompileContext context)
+        public override void Compile(ICompileContext context)
         {
             context.Append(IfThen(LessThan(context.Position, context.Length), Goto(context.Failure)));
             context.Succeed(Empty());
@@ -48,9 +47,9 @@ namespace Lexico
         public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
         {
             if (member == typeof(SOF)) {
-                return SOFParser.Instance;
+                return new SOFParser(config, ParserFlags);
             }
-            return new SurroundParser(null, child(null), SOFParser.Instance);
+            return new SurroundParser(null, child(null), new SOFParser(config, ParserFlags), config, ParserFlags);
         }
     }
 
@@ -59,16 +58,15 @@ namespace Lexico
     /// </summary>
     [SOF] public struct SOF {}
 
-    internal class SOFParser : IParser
+    internal class SOFParser : ParserBase
     {
-        public static SOFParser Instance { get; } = new SOFParser();
-        private SOFParser() {}
+        public SOFParser(IConfig config, ParserFlags flags) : base(config, flags) {}
 
         public override string ToString() => "SOF";
 
-        public Type OutputType => typeof(void);
+        public override Type OutputType => typeof(void);
 
-        public void Compile(ICompileContext context)
+        public override void Compile(ICompileContext context)
         {
             context.Append(IfThen(GreaterThan(context.Position, Constant(0)), Goto(context.Failure)));
             context.Succeed(Empty());
