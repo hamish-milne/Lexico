@@ -7,12 +7,12 @@ namespace Lexico
     {
         public override int Priority => 100;
 
-        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => new NotParser(config, child(null), ParserFlags);
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => new NotParser(child(null), config, ParserFlags);
     }
 
     public class NotParser : ParserBase
     {
-        public NotParser(IConfig config, IParser inner, ParserFlags flags) : base(config, flags) => this._inner = inner;
+        public NotParser(IParser inner, IConfig config, ParserFlags flags) : base(config, flags) => this._inner = inner;
         private readonly IParser _inner;
         public override Type OutputType => typeof(void);
 
@@ -22,6 +22,7 @@ namespace Lexico
             context.Child(_inner, null, context.Result, context.Failure, savePoint);
             context.Restore(savePoint);
             context.Succeed();
+            context.Release(savePoint);
         }
     }
 }

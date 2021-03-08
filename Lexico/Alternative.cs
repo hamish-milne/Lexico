@@ -34,9 +34,12 @@ namespace Lexico
 
         public override IParser Create(MemberInfo member, IConfig config)
         {
-            var prop = member.ReflectedType.GetProperty(Property, Instance | Public | NonPublic)
-                       ?? throw new ArgumentException($"Could not find `{Property}` on {member.ReflectedType}");
-            return prop.GetValue(Activator.CreateInstance(member.ReflectedType, true)) is IEnumerable<Type> options
+            if (ReflectedType == null) {
+                throw new Exception("'Indirect' attributes must be applied to a class member");
+            }
+            var prop = ReflectedType.GetProperty(Property, Instance | Public | NonPublic)
+                       ?? throw new ArgumentException($"Could not find `{Property}` on {ReflectedType}");
+            return prop.GetValue(Activator.CreateInstance(ReflectedType, true)) is IEnumerable<Type> options
                        ? new AlternativeParser(member.GetMemberType(), config, ParserFlags, options)
                        : throw new ArgumentNullException($"Found `{Property}` is not IEnumerable<Type>");
         }
@@ -49,16 +52,19 @@ namespace Lexico
             OutputType = baseType;
             if (optionTypes != null)
             {
-                foreach (var type in optionTypes)
-                {
-                    if (!baseType.IsAssignableFrom(type)) throw new ArgumentException($"Option '{type}' is not assignable to base type '{baseType}'");
-                }
+                optionTypes = optionTypes.ToArray();
+                if (baseType != typeof(Unnamed))
+                    foreach (var type in optionTypes)
+                    {
+                        if (!baseType.IsAssignableFrom(type)) throw new ArgumentException($"Option '{type}' is not assignable to base type '{baseType}'");
+                    }
             }
             else
             {
                 optionTypes = baseType.Assembly.GetTypes().Where(t => (t.IsClass || t.IsValueType) && !t.IsAbstract && baseType.IsAssignableFrom(t));
             }
 
+            // ReSharper disable once PossibleMultipleEnumeration
             _options = optionTypes.Select(ParserCache.GetParser).ToArray();
             if (_options.Length == 0)
             {
@@ -69,7 +75,7 @@ namespace Lexico
         public AlternativeParser(Type outputType, IConfig config, ParserFlags flags, IEnumerable<IParser> alternatives) : base(config, flags)
         {
             OutputType = outputType;
-            this._options = alternatives.ToArray();
+            _options = alternatives.ToArray();
         }
 
         private readonly IParser[] _options;
@@ -79,12 +85,16 @@ namespace Lexico
         public override void Compile(ICompileContext context)
         {
             var success = context.Success ?? Label();
+            var cut = context.Cache(Constant(false));
             foreach (var option in _options)
             {
                 var savePoint = context.Save();
-                context.Child(option, null, context.Result, success, savePoint);
+                context.Child(option, null, context.Result, success, savePoint, cut);
                 context.Restore(savePoint);
+                context.Append(IfThen(cut, Goto(context.Failure)));
+                context.Release(savePoint);
             }
+            context.Release(cut);
             context.Fail();
             if (context.Success == null) {
                 context.Append(Label(success));
@@ -93,5 +103,36 @@ namespace Lexico
         }
 
         public override string ToString() => $"Any {OutputType.Name}";
+    }
+
+    public class CutAttribute : TermAttribute
+    {
+        public override int Priority => 200;
+
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => new CutParser(child(null), config, ParserFlags);
+    }
+
+    internal class CutParser : ParserBase
+    {
+        private readonly IParser previous;
+        public CutParser(IParser previous, IConfig config, ParserFlags parserFlags) : base(config, parserFlags)
+        {
+            this.previous = previous;
+        }
+
+        public override Type OutputType => previous.OutputType;
+
+        public override void Compile(ICompileContext context)
+        {
+            if (context.Cut == null) {
+                previous.Compile(context);
+            } else {
+                var success = Label();
+                context.Child(previous, null, context.Result, success, context.Failure);
+                context.Append(Label(success));
+                context.Append(Assign(context.Cut, Constant(true)));
+                context.Succeed();
+            }
+        }
     }
 }

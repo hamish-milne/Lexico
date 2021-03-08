@@ -61,6 +61,7 @@ namespace Lexico.RegexImpl
             var start = context.Cache(context.Position);
             context.Child(_inner, null, null, null, context.Failure);
             context.Succeed(Call(context.String, nameof(string.Substring), Type.EmptyTypes, start, Subtract(context.Position, start)));
+            context.Release(start);
         }
     }
 
@@ -100,6 +101,7 @@ namespace Lexico.RegexImpl
             {
                 context.Succeed();
             }
+            context.Release(sb);
         }
 
         public override string ToString() => "Regex sequence";
@@ -143,14 +145,17 @@ namespace Lexico.RegexImpl
     public class Group : Pattern
     {
         [Literal("(")] Unnamed _;
-        [Optional] GroupModifier modifier;
+        [Optional] GroupModifier? modifier;
         [Term] Alternation inner;
         [Literal(")")] Unnamed __;
 
-        public override IParser Create(IConfig config, ParserFlags flags) => inner.Create(config, flags);
+        public override IParser Create(IConfig config, ParserFlags flags) => modifier?.Modify(inner.Create(config, flags), config, flags) ?? inner.Create(config, flags);
     }
 
-    public abstract class GroupModifier { }
+    public abstract class GroupModifier
+    {
+        public virtual IParser Modify(IParser input, IConfig config, ParserFlags parserFlags) => input;
+    }
 
     public class NonCapturing : GroupModifier
     {
@@ -163,6 +168,18 @@ namespace Lexico.RegexImpl
         [Literal("?")] Unnamed _;
         [Optional, Literal("<")] string? behind;
         [CharSet("=!")] char direction;
+
+        public override IParser Modify(IParser input, IConfig config, ParserFlags parserFlags)
+        {
+            if (behind != null) {
+                throw new NotSupportedException("Look-behind not supported");
+            }
+            if (direction == '!') {
+                return new NotParser(input, config, parserFlags);
+            } else {
+                return new LookAheadParser(input, config, parserFlags);
+            }
+        }
     }
 
     public class Named : GroupModifier

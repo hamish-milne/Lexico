@@ -56,6 +56,7 @@ namespace Lexico
                 context.Append(Label(skip));
             }
             context.Succeed();
+            context.Release(savePoint);
         }
 
         public override string ToString() => $"{Child}?";

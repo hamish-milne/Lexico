@@ -15,6 +15,8 @@ namespace Lexico
     [AttributeUsage(Field | Property | Class | Struct, AllowMultiple = true)]
     public class TermAttribute : Attribute
     {
+        public Type? ReflectedType { get; set; }
+
         /// <summary>
         /// Determines the order that parsers are generated in. Higher priority attributes are evaluated first,
         /// and therefore applied last in the chain.
@@ -123,6 +125,9 @@ namespace Lexico
         {
             var defaults = new Queue<TermAttribute>(defaultAttrs);
             var attrs = new Queue<TermAttribute>(member.GetCustomAttributes<TermAttribute>(true).OrderByDescending(a => a.Priority));
+            foreach (var a in attrs) {
+                a.ReflectedType = member.ReflectedType;
+            }
             var mConfig = GetConfig(member) ?? Config.Default;
             IParser Next(MemberInfo? child) {
                 if (child != null) {
@@ -131,6 +136,7 @@ namespace Lexico
                         // TODO: If this is not true, it is possible for recursion to not work properly
                     }
                     foreach (var attr in child.GetCustomAttributes<TermAttribute>(true).OrderByDescending(a => a.Priority)) {
+                        attr.ReflectedType = child.ReflectedType;
                         attrs.Enqueue(attr);
                     }
                     member = child;
