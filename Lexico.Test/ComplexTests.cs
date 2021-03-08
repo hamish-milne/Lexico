@@ -15,22 +15,66 @@ namespace Lexico.Test
         [Fact]
         public void CalculatorTest()
         {
-            var expr = Lexico.Parse<Calculator.Expression>("5-(3/2)^(2+1)", new XunitTrace(_outputHelper));
+            var expr = Lexico.Parse<Calculator.Expression>("5-(3/2)^(2+1)", new XunitDeveloperTrace(_outputHelper));
             Assert.Equal(1.625f, expr.Value);
         }
 
         [Fact]
         public void JsonTest()
         {
-            var expr = Lexico.Parse<Json.JsonDocument>(@"
-            {
-                ""foo"": [1, 2, 3.0],
-                5: ""bar"",
-                [6.1]: {""baz"": ""bat""}
-            }
-            ");
+            var expr = Lexico.Parse<Json.JsonDocument>(
+@"{
+    ""foo"": [1, 2, 3.0],
+    5: ""bar"",
+    [6.1]: {""baz"": ""bat""}
+}");
             Assert.NotNull(expr);
         }
+
+        [Theory]
+        [InlineData("Property Array Missing [",
+@"{
+    ""foo"": 1, 2, 3.0],
+    5: ""bar"",
+    [6.1]: {""baz"": ""bat""}
+}")]
+        [InlineData("Property Array Missing ]",
+@"{
+    ""foo"": [1, 2, 3.0,
+    5: ""bar"",
+    [6.1]: {""baz"": ""bat""}
+}")]
+        [InlineData("Missing closing }",
+@"{
+    ""foo"": [1, 2, 3.0],
+    5: ""bar"",
+    [6.1]: {""baz"": ""bat""}
+")]
+        [InlineData("Missing property :",
+@"{
+    ""foo"" [1, 2, 3.0],
+    5: ""bar"",
+    [6.1]: {""baz"": ""bat""}
+}")]
+        [InlineData("Missing , after foo",
+@"{
+    ""foo"": [1, 2, 3.0]
+    5: ""bar"",
+    [6.1]: {""baz"": ""bat""}
+}")]
+        [InlineData("Missing bar key",
+@"{
+    ""foo"": [1, 2, 3.0],
+    : ""bar"",
+    [6.1]: {""baz"": ""bat""}
+}")]
+        [InlineData("Missing property value for foo",
+@"{
+    ""foo"":,
+    5: ""bar"",
+    [6.1]: {""baz"": ""bat""}
+}")]
+        public void InvalidJsonTest(string testName, string text) => Assert.True(!Lexico.TryParse(text, out Json.JsonDocument result, new XunitUserTrace(_outputHelper)));
 
         private class Word
         {
@@ -81,7 +125,7 @@ namespace Lexico.Test
         ]
         public void CombinedTest(string text, string word, int[] numbers, params string[] words)
         {
-            Assert.True(Lexico.TryParse(text, out Item result, new XunitTrace(_outputHelper)), "Parsing failed");
+            Assert.True(Lexico.TryParse(text, out Item result, new XunitUserTrace(_outputHelper)), "Parsing failed");
             Assert.Equal(word, result.Word.Value);
             Assert.Equal(numbers, result.Numbers);
             if (words.Length == 0) {

@@ -22,11 +22,28 @@ namespace Lexico.RegexImpl
         [Term] Alternation pattern;
         [Optional, Literal("$")] string endAnchor;
 
-        public IParser Create() => new SubstringParser(endAnchor == null
-            ? pattern.Create()
-            : new ConcatParser(pattern.Create(), EOFParser.Instance));
+        public class Parser : IParser
+        {
+            private IParser _inner;
+            private readonly string _pattern;
 
-        public static IParser Parse(string pattern) => Lexico.Parse<Regex>(pattern).Create();
+            public Parser(IParser inner, string pattern)
+            {
+                _inner = inner;
+                _pattern = pattern;
+            }
+
+            public Type OutputType => _inner.OutputType;
+            public void Compile(ICompileContext context) => _inner.Compile(context);
+            public override string ToString() => $"Regex pattern: {_pattern}";
+        }
+
+        public IParser Create(string regexPattern) => new Parser(new SubstringParser(endAnchor == null
+                                                                                              ? pattern.Create()
+                                                                                              : new ConcatParser(pattern.Create(), EOFParser.Instance)),
+                                                                      regexPattern); // TODO: Don't pass in regexPattern, retrieve it by unparsing
+
+        public static IParser Parse(string pattern) => Lexico.Parse<Regex>(pattern).Create(pattern);
     }
 
     public class SubstringParser : IParser
