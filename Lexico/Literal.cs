@@ -12,7 +12,7 @@ namespace Lexico
     [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field | Class | Struct, AllowMultiple = false)]
     public abstract class TerminalAttribute : TermAttribute
     {
-        public override int Priority => 30;
+        public override int Priority => 10;
         public abstract IParser Create(MemberInfo member, IConfig config);
 
         public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
@@ -48,9 +48,12 @@ namespace Lexico
         public string Property { get; }
 
         public override IParser Create(MemberInfo member, IConfig config) {
-            var prop = member.ReflectedType.GetProperty(Property, Instance | Public | NonPublic)
-                ?? throw new ArgumentException($"Could not find `{Property}` on {member.ReflectedType}");
-            return new LiteralParser((string)prop.GetValue(Activator.CreateInstance(member.ReflectedType, true)));
+            if (ReflectedType == null) {
+                throw new Exception("'Indirect' attributes must be applied to a class member");
+            }
+            var prop = ReflectedType.GetProperty(Property, Instance | Public | NonPublic)
+                ?? throw new ArgumentException($"Could not find `{Property}` on {ReflectedType}");
+            return new LiteralParser((string)prop.GetValue(Activator.CreateInstance(ReflectedType, true)));
         }
     }
 

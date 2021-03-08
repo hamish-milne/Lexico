@@ -1,3 +1,4 @@
+using System.IO;
 using System.Reflection;
 using System.Linq;
 using System.Collections.Generic;
@@ -16,26 +17,28 @@ namespace Lexico
         public Expression Length { get; }
         public Expression String { get; }
         public Expression UserObject { get; }
+        public Expression? Cut { get; }
 
         private delegate bool LocalParser<T>(ref T value);
 
         private readonly List<Expression> statements = new List<Expression>();
         private readonly List<ParameterExpression> variables = new List<ParameterExpression>();
+        private readonly List<ParameterExpression> variablePool = new List<ParameterExpression>();
         private readonly Dictionary<IParser, Expression> recursionTargets;
         private readonly List<IParser> recursionList;
         private readonly HashSet<IParser> knownNotRecursive;
         private readonly CompileContext topLevel;
         private readonly IParser? source;
         private readonly CompileContext? parent;
-        private readonly Expression ilrStack;
-        private readonly Expression ilrPos;
+        private readonly Expression? ilrStack;
+        private readonly Expression? ilrPos;
         private readonly Expression? byRefPosition;
         private readonly Expression? byRefResult;
         private readonly Expression? trace;
         private readonly bool enableIlrCheck;
         private Expression? memo;
         private readonly List<IParser> parsersById;
-        private bool doIlrChecks;
+        private readonly bool doIlrChecks;
 
         private bool InTree(IParser parser) => source == parser || parent?.InTree(parser) == true;
 
@@ -46,10 +49,23 @@ namespace Lexico
 
         public Expression Cache(Expression value)
         {
-            var v = Variable(value.Type);
-            statements.Add(Assign(v, value));
+            var v = variablePool
+                .FirstOrDefault(x => x.Type == value.Type);
+            if (v == null) {
+                v = Variable(value.Type);
+            } else {
+                variablePool.Remove(v);
+            }
             variables.Add(v);
+            statements.Add(Assign(v, value));
             return v;
+        }
+
+        public void Release(Expression? variable)
+        {
+            if (variables.Remove(variable as ParameterExpression)) {
+                variablePool.Add((ParameterExpression)variable);
+            }
         }
 
         private struct Memo
@@ -78,7 +94,7 @@ namespace Lexico
             public bool Remember(int id, int pos) => cache.Add((id, pos));
         }
 
-        private CompileContext(Expression text, Expression position, Expression result, LabelTarget onSuccess, LabelTarget onFail, Expression? trace, Expression userObject)
+        private CompileContext(Expression text, Expression position, Expression result, LabelTarget onSuccess, LabelTarget onFail, Expression? trace, Expression userObject, bool doIlrChecks)
         {
             this.Success = onSuccess;
             this.Failure = onFail;
@@ -94,14 +110,17 @@ namespace Lexico
             this.topLevel = this;
             this.source = null;
             this.parent = null;
-            this.ilrStack = Cache(Constant(default(ulong)));
-            this.ilrPos = Cache(position);
+            this.doIlrChecks = doIlrChecks;
+            if (doIlrChecks) {
+                this.ilrStack = Cache(Constant(default(ulong)));
+                this.ilrPos = Cache(position);
+            }
             this.trace = trace;
             this.UserObject = userObject;
             this.parsersById = new List<IParser>();
         }
 
-        private CompileContext(CompileContext parent, IParser source, Expression? result, LabelTarget? onSuccess, LabelTarget onFail, bool enableIlrCheck)
+        private CompileContext(CompileContext parent, IParser source, Expression? result, LabelTarget? onSuccess, LabelTarget onFail, bool enableIlrCheck, Expression? cut, bool keepVariables)
         {
             this.Success = onSuccess;
             this.Failure = onFail;
@@ -123,6 +142,10 @@ namespace Lexico
             this.memo = parent.memo;
             this.parsersById = parent.parsersById;
             this.doIlrChecks = parent.doIlrChecks;
+            this.Cut = cut;
+            if (keepVariables) {
+                this.variablePool = parent.variablePool;
+            }
         }
 
         public static Delegate Compile(IParser parser, CompileFlags flags)
@@ -139,16 +162,14 @@ namespace Lexico
             var traceParam = Parameter(typeof(ITrace));
             var userObject = Parameter(typeof(object));
             var context = new CompileContext(text, position, result, onSuccess, onFail,
-                (flags & CompileFlags.Trace) != 0 ? traceParam : null, userObject);
+                (flags & CompileFlags.Trace) != 0 ? traceParam : null, userObject,
+                (flags & (CompileFlags.Memoizing | CompileFlags.CheckImmediateLeftRecursion)) != 0);
             if ((flags & (CompileFlags.Memoizing | CompileFlags.AggressiveMemoizing)) != 0) {
                 var memoType = (flags & CompileFlags.AggressiveMemoizing) != 0 ? typeof(AggressiveMemo) : typeof(Memo);
                 context.memo = context.Cache(New(memoType));
                 context.Append(Call(context.memo, nameof(Memo.Init), Type.EmptyTypes));
             }
-            if ((flags & (CompileFlags.Memoizing | CompileFlags.CheckImmediateLeftRecursion)) != 0) {
-                context.doIlrChecks = true;
-            }
-            context.Child(parser, null, context.Result, onSuccess, onFail);
+            context.Child(parser, null, context.Result, onSuccess, onFail, null);
             var block = context.MakeFunctionBlock();
             return Lambda(
                 typeof(Parser<>).MakeGenericType(parser.OutputType),
@@ -171,7 +192,7 @@ namespace Lexico
                 var tmpResult = Parameter(outType.MakeByRefType());
                 var tmpSuccess = Label();
                 var tmpFail = Label();
-                var childContext = new CompileContext(this, child, tmpResult, tmpSuccess, tmpFail, doIlrChecks);
+                var childContext = new CompileContext(this, child, tmpResult, tmpSuccess, tmpFail, doIlrChecks, null, false);
                 child.Compile(childContext);
 
                 // Set the placeholder to the lambda we just built up
@@ -188,16 +209,19 @@ namespace Lexico
         {
             var recurse = recursionTargets[child];
             var tmp = Cache(Default(GetOutputType(child)));
-            statements.Add(IfThen(Not(Invoke(recurse, tmp)), Goto(onFail)));
+            var r = Cache(Invoke(recurse, tmp));
+            statements.Add(IfThen(Not(r), Goto(onFail)));
             if (result != null && child.OutputType != typeof(void)) {
                 Append(Assign(result, tmp));
             }
+            Release(tmp);
+            Release(r);
             if (onSuccess != null) {
                 Append(Goto(onSuccess));
             }
         }
 
-        public void Child(IParser child, string? name, Expression? result, LabelTarget? onSuccess, LabelTarget onFail)
+        public void Child(IParser child, string? name, Expression? result, LabelTarget? onSuccess, LabelTarget onFail, Expression? cut)
         {
             if (recursionTargets.ContainsKey(child))
             {
@@ -214,10 +238,15 @@ namespace Lexico
             var childSuccess = doTrace ? Label() : onSuccess;
             var childFail = (doTrace || memo != null) ? Label() : onFail;
 
-            var childContext = new CompileContext(this, child, result, childSuccess, childFail, false);
+            var startPos = (memo != null || doTrace) ? Cache(Position) : null;
+            var startIlr = ilrStack != null ? Cache(ilrStack) : null;
+
+            var childContext = new CompileContext(this, child, result, childSuccess, childFail, false, cut, true);
             child.Compile(childContext);
             // If recursion became apparent during compilation...
             if (recursionTargets.ContainsKey(child)) {
+                Release(startPos);
+                Release(startIlr);
                 CallRecursionTarget(child, result, onSuccess, onFail);
                 return;
             }
@@ -243,10 +272,11 @@ namespace Lexico
                 Append(OrAssign(ilrStack, Constant(currentBit)));
             }
 
+
+
             // Trace begin
             Expression segmentExpr = null!;
             if (doTrace) {
-                var startPos = Cache(Position);
                 segmentExpr = New(stringSegment, String, startPos, Subtract(Position, startPos));
                 Append(Call(trace, nameof(ITrace.Push), Type.EmptyTypes, Constant(child, typeof(IParser)), Constant(name, typeof(string))));
             }
@@ -266,17 +296,23 @@ namespace Lexico
                     // This means it may incorrectly report a parse failure if a potentially correct tree is blocked
                     // due to the ILR stack used on the first attempt. However it essentially guarantees linear complexity.
                     Append(IfThen(Call(memo, nameof(AggressiveMemo.Check), Type.EmptyTypes, parserId, Position), Goto(memoEnd)));
-                    remember = Call(memo, nameof(AggressiveMemo.Remember), Type.EmptyTypes, parserId, Cache(Position));
+                    remember = Call(memo, nameof(AggressiveMemo.Remember), Type.EmptyTypes, parserId, startPos!);
                 } else {
                     // 'Normal' memo cares about the position, parser ID, and ILR state, so it will never report
                     // a false negative, but may not prevent factorial complexity in all cases.
                     Append(IfThen(Call(memo, nameof(Memo.Check), Type.EmptyTypes, parserId, Position, ilrStack), Goto(memoEnd)));
-                    remember = Call(memo, nameof(Memo.Remember), Type.EmptyTypes, parserId, Cache(Position), Cache(ilrStack));
+                    remember = Call(memo, nameof(Memo.Remember), Type.EmptyTypes, parserId, startPos!, startIlr!);
                 }
             }
 
             // The actual child parser code:
-            Append(Block(childContext.variables, childContext.statements));
+            // variables.AddRange(childContext.variables);
+            if (childContext.variables.Count > 0) {
+                statements.Add(Block(childContext.variables, childContext.statements));
+            } else {
+                statements.AddRange(childContext.statements);
+            }
+            // Append(Block(childContext.variables, childContext.statements));
 
             // Memo end
             if (memo != null) {
@@ -311,13 +347,24 @@ namespace Lexico
                     onSuccess == null ? (Expression)Empty() : Goto(onSuccess)
                 });
             }
+
+            Release(segmentExpr);
+            Release(startPos);
+            Release(startIlr);
+            variables.AddRange(childContext.variables);
         }
+
+        bool wasUsed = false;
 
         private static readonly ConstructorInfo stringSegment =
             typeof(StringSegment).GetConstructor(new []{typeof(string), typeof(int), typeof(int)});
 
-        private Expression MakeFunctionBlock()
+        private BlockExpression MakeFunctionBlock()
         {
+            if (wasUsed) {
+                throw new Exception();
+            }
+            wasUsed = true;
             // TODO: Put trace stuff into general 'make block' function
             // Convert the gotos to a boolean return value
             var doTrace = trace != null && source != null && !(source is UnaryParser);
@@ -326,10 +373,10 @@ namespace Lexico
                 : Block(Assign(byRefResult, Result), Assign(byRefPosition, Position));
             if (doTrace)
             {
-                var startPos = Variable(typeof(int));
+                var startPos = Variable(typeof(int), "startPos");
                 var sourceExpr = Constant(source, typeof(IParser));
                 var segmentExpr = New(stringSegment, String, startPos, Subtract(Position, startPos));
-                return Block(variables.Concat(new []{startPos}), new Expression[]{
+                return Block(variables.Concat(new []{startPos}).Concat(variablePool), new Expression[]{
                     Assign(startPos, Position),
                     Call(trace, nameof(ITrace.Push), Type.EmptyTypes, sourceExpr,
                         Constant(null, typeof(string))
@@ -354,7 +401,7 @@ namespace Lexico
                     Label(end, Constant(false))
                 }));
             }
-            return Block(variables, statements.Concat(new Expression[]{
+            return Block(variables.Concat(variablePool), statements.Concat(new Expression[]{
                 Label(Success ?? throw new InvalidOperationException()),
                 saveRefArgs,
                 Return(end, Constant(true)),
@@ -365,23 +412,43 @@ namespace Lexico
             }));
         }
 
-        private readonly Dictionary<LabelTarget, (Expression pos, Expression stack, Expression stackPos)> savePoints
-            = new Dictionary<LabelTarget, (Expression, Expression, Expression)>();
+        private readonly Dictionary<LabelTarget, (Expression pos, Expression? stack, Expression? stackPos)> savePoints
+            = new Dictionary<LabelTarget, (Expression, Expression?, Expression?)>();
 
         public void Restore(LabelTarget savePoint)
         {
             var (pos, stack, stackPos) = savePoints[savePoint];
             Append(Label(savePoint));
             Append(Assign(Position, pos));
-            Append(Assign(ilrStack, stack));
-            Append(Assign(ilrPos, stackPos));
+            if (enableIlrCheck) {
+                Append(Assign(ilrStack, stack));
+                Append(Assign(ilrPos, stackPos));
+            }
         }
 
         public LabelTarget Save()
         {
             var restore = Label();
-            savePoints.Add(restore, (Cache(Position), Cache(ilrStack), Cache(ilrPos)));
+            if (enableIlrCheck) {
+                savePoints.Add(restore, (Cache(Position), Cache(ilrStack!), Cache(ilrPos!)));
+            } else {
+                savePoints.Add(restore, (Cache(Position), null, null));
+            }
             return restore;
+        }
+
+        public void Release(LabelTarget target)
+        {
+            if (savePoints.TryGetValue(target, out var exprs)) {
+                Release(exprs.pos);
+                if (exprs.stack != null) {
+                    Release(exprs.stack);
+                }
+                if (exprs.stackPos != null) {
+                    Release(exprs.stackPos);
+                }
+                savePoints.Remove(target);
+            }
         }
     }
 }

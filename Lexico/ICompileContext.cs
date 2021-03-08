@@ -6,17 +6,20 @@ namespace Lexico
     public interface ICompileContext
     {
         LabelTarget Save();
+        void Release(LabelTarget target);
         void Restore(LabelTarget savePoint);
         LabelTarget? Success { get; }
         LabelTarget Failure { get; }
         Expression Position { get; }
         Expression? Result { get; }
         Expression Length { get; }
+        Expression? Cut { get; }
         Expression Cache(Expression value);
+        void Release(Expression variable);
         Expression String { get; }
         Expression UserObject { get; }
         void Append(Expression statement);
-        void Child(IParser child, string? name, Expression? result, LabelTarget? onSuccess, LabelTarget onFail);
+        void Child(IParser child, string? name, Expression? result, LabelTarget? onSuccess, LabelTarget onFail, Expression? cut = null);
         void Recursive(IParser child);
     }
 

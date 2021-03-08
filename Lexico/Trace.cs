@@ -78,7 +78,7 @@ namespace Lexico
                         sb.Append(lastPush.Value.name).Append(" : ");
                     }
 
-                    sb.Append(lastPush.Value.parser?.ToString() ?? "<UNKNOWN>").Append(' ');
+                    sb.Append((lastPush.Value.parser?.ToString() ?? "<UNKNOWN>").Replace("\n", "\\n").Replace("\r", "\\r")).Append(' ');
                     lastPush = null;
                 }
                 else
@@ -98,7 +98,7 @@ namespace Lexico
                         text = new StringSegment(text.String, text.Start, text.Length + 1);
                     }
 
-                    sb.Append("\u2717 (got `").Append(text).Append("`)");
+                    sb.Append("\u2717 (got `").Append(text.ToString().Replace("\n", "\\n").Replace("\r", "\\r")).Append("`)");
                 }
             }
             else
@@ -169,7 +169,7 @@ namespace Lexico
                     if (name != null) {
                         sb.Append(name).Append(" : ");
                     }
-                    sb.Append(parser?.ToString() ?? "<UNKNOWN>").Append(" {");
+                    sb.Append((parser?.ToString() ?? "<UNKNOWN>").Replace("\n", "\\n").Replace("\r", "\\r")).Append(" {");
                     break;
                 case false:
                     var parserString = parser?.ToString() ?? "<UNKNOWN>";

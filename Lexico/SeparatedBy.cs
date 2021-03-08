@@ -10,6 +10,8 @@ namespace Lexico
     [AttributeUsage(Field | Property | Class | Struct, AllowMultiple = false)]
     public class SeparatedByAttribute : TermAttribute
     {
+        public override int Priority => 25;
+
         public SeparatedByAttribute(Type separator) {
             separatorType = separator ?? throw new ArgumentNullException(nameof(separator));
         }
@@ -31,7 +33,7 @@ namespace Lexico
             var sep = GetSeparator(config);
             return c switch {
                 RepeatParser r => new RepeatParser(r.OutputType, r.Element, sep, r.Min, r.Max),
-                SequenceParser s => new SequenceParser(s.Type, sep),
+                SequenceParser s => new SequenceParser(s.Type, sep, s.CheckZeroLength),
                 _ => throw new ArgumentException($"Separator not valid on {c}")
             };
         }

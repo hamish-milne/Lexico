@@ -41,4 +41,37 @@ namespace Lexico
             context.Succeed(Empty());
         }
     }
+
+    public class SOFAttribute : TermAttribute
+    {
+        public override int Priority => 110;
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
+        {
+            if (member == typeof(SOF)) {
+                return SOFParser.Instance;
+            }
+            return new SurroundParser(null, child(null), SOFParser.Instance);
+        }
+    }
+
+    /// <summary>
+    /// Only matches the start-of-file (i.e. expects the Position to be at 0). No output
+    /// </summary>
+    [SOF] public struct SOF {}
+
+    internal class SOFParser : IParser
+    {
+        public static SOFParser Instance { get; } = new SOFParser();
+        private SOFParser() {}
+
+        public override string ToString() => "SOF";
+
+        public Type OutputType => typeof(void);
+
+        public void Compile(ICompileContext context)
+        {
+            context.Append(IfThen(GreaterThan(context.Position, Constant(0)), Goto(context.Failure)));
+            context.Succeed(Empty());
+        }
+    } 
 }

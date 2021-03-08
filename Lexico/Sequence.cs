@@ -16,15 +16,18 @@ namespace Lexico
     {
         public override int Priority => 0;
         public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
-            => new SequenceParser(member.GetMemberType(), null);
+            => new SequenceParser(member.GetMemberType(), null, CheckZeroLength);
 
         public override bool AddDefault(MemberInfo member) => member is Type;
+
+        public bool CheckZeroLength { get; set; }
     }
 
     internal class SequenceParser : IParser
     {
-        public SequenceParser(Type type, IParser? separator)
+        public SequenceParser(Type type, IParser? separator, bool checkZeroLength)
         {
+            this.CheckZeroLength = checkZeroLength;
             this.Type = type ?? throw new ArgumentNullException(nameof(type));
             this.separator = separator;
             var typeHierachy = new List<Type>();
@@ -72,6 +75,7 @@ namespace Lexico
         }
 
         public Type Type { get; }
+        public bool CheckZeroLength { get; }
         private readonly (MemberInfo? member, IParser parser)[] members;
         private readonly IParser? separator;
 
@@ -79,6 +83,10 @@ namespace Lexico
 
         public void Compile(ICompileContext context)
         {
+            Expression currentPos = null!;
+            if (CheckZeroLength) {
+                currentPos = context.Cache(context.Position);
+            }
             // Get the current value. If it's not the right type, make a new one.
             // If we're not saving the value, no need to do this
             Expression? obj = null;
@@ -105,7 +113,12 @@ namespace Lexico
                     member == null || obj == null ? null : MakeMemberAccess(obj, member),
                     null, context.Failure);
             }
+            if (CheckZeroLength) {
+                context.Append(IfThen(LessThanOrEqual(context.Position, currentPos), Goto(context.Failure)));
+            }
             context.Succeed(obj!);
+            context.Release(currentPos);
+            context.Release(obj);
         }
 
         private static bool IsPrivate(MemberInfo member) => member switch

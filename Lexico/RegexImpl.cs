@@ -62,6 +62,7 @@ namespace Lexico.RegexImpl
             var start = context.Cache(context.Position);
             context.Child(inner, null, null, null, context.Failure);
             context.Succeed(Call(context.String, nameof(string.Substring), Type.EmptyTypes, start, Subtract(context.Position, start)));
+            context.Release(start);
         }
     }
 
@@ -104,6 +105,7 @@ namespace Lexico.RegexImpl
             {
                 context.Succeed();
             }
+            context.Release(sb);
         }
 
         public override string ToString() => "Regex sequence";
@@ -147,14 +149,17 @@ namespace Lexico.RegexImpl
     public class Group : Pattern
     {
         [Literal("(")] Unnamed _;
-        [Optional] GroupModifier modifier;
+        [Optional] GroupModifier? modifier;
         [Term] Alternation inner;
         [Literal(")")] Unnamed __;
 
-        public override IParser Create() => inner.Create();
+        public override IParser Create() => modifier?.Modify(inner.Create()) ?? inner.Create();
     }
 
-    public abstract class GroupModifier { }
+    public abstract class GroupModifier
+    {
+        public virtual IParser Modify(IParser input) => input;
+    }
 
     public class NonCapturing : GroupModifier
     {
@@ -167,6 +172,18 @@ namespace Lexico.RegexImpl
         [Literal("?")] Unnamed _;
         [Optional, Literal("<")] string? behind;
         [CharSet("=!")] char direction;
+
+        public override IParser Modify(IParser input)
+        {
+            if (behind != null) {
+                throw new NotSupportedException("Look-behind not supported");
+            }
+            if (direction == '!') {
+                return new NotParser(input);
+            } else {
+                return new LookAheadParser(input);
+            }
+        }
     }
 
     public class Named : GroupModifier
