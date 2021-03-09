@@ -15,13 +15,11 @@ namespace Lexico
     /// </summary>
     public class NumberAttribute : TerminalAttribute
     {
-        public override IParser Create(MemberInfo member, IConfig config)
-        {
+        public override IParser Create(MemberInfo member, IConfig config) =>
             // TODO: Consider caching these
-            return new NumberParser(
-                config.Get(defaultNumbers[member.GetMemberType()]),
-                member.GetMemberType());
-        }
+            new NumberParser(config, ParserFlags,
+                             config.Get(defaultNumbers[member.GetMemberType()]),
+                             member.GetMemberType());
 
         private static readonly Dictionary<Type, NumberStyles> defaultNumbers
             = new Dictionary<Type, NumberStyles>
@@ -43,9 +41,9 @@ namespace Lexico
             => member.GetMemberType() is Type t && defaultNumbers.ContainsKey(t);
     }
 
-    internal class NumberParser : IParser
+    internal class NumberParser : ParserBase
     {
-        public NumberParser(NumberStyles styles, Type numberType)
+        public NumberParser(IConfig config, ParserFlags flags, NumberStyles styles, Type numberType) : base(config, flags)
         {
             parseMethod = numberType.GetMethod(nameof(int.Parse), new []{typeof(string), typeof(NumberStyles)})
                 ?? throw new ArgumentException($"{numberType} has no Parse method");
@@ -89,7 +87,7 @@ namespace Lexico
             if (Has(AllowTrailingWhite)) {
                 pattern.Append(@"\s*");
             }
-            regex = RegexImpl.Regex.Parse(pattern.ToString());
+            regex = RegexImpl.Regex.Parse(pattern.ToString(), config, flags);
             this.styles = styles;
         }
 
@@ -97,9 +95,9 @@ namespace Lexico
         private readonly MethodInfo parseMethod;
         private readonly IParser regex;
 
-        public Type OutputType => parseMethod.DeclaringType;
+        public override Type OutputType => parseMethod.DeclaringType;
 
-        public void Compile(Context context)
+        public override void Compile(Context context)
         {
             var e = context.Emitter;
             var match = e.Var(null!, typeof(string));

@@ -11,7 +11,7 @@ namespace Lexico
     public class WhitespaceAttribute : TerminalAttribute
     {
         public override IParser Create(MemberInfo member, IConfig config)
-            => new WhitespaceParser(config);
+            => new WhitespaceParser(config, ParserFlags);
     }
 
     /// <summary>
@@ -20,17 +20,17 @@ namespace Lexico
     /// </summary>
     [Whitespace] public struct Whitespace {}
 
-    internal class WhitespaceParser : IParser
+    internal class WhitespaceParser : ParserBase
     {
-        public WhitespaceParser(IConfig config) {
-            multiline = (config.Get<RegexOptions>(default) & RegexOptions.Multiline) != 0;
+        public WhitespaceParser(IConfig config, ParserFlags flags) : base(config, flags) {
+            _multiline = (config.Get<RegexOptions>(default) & RegexOptions.Multiline) != 0;
         }
 
-        private readonly bool multiline;
+        private readonly bool _multiline;
 
-        public Type OutputType => typeof(void);
+        public override Type OutputType => typeof(void);
 
-        public void Compile(Context context)
+        public override void Compile(Context context)
         {
             var e = context.Emitter;
             var space = e.Const(' ');
@@ -41,7 +41,7 @@ namespace Lexico
                 e.Compare(context.Peek(0), CompareOp.Greater, space, label);
             };
             Action<Label> test;
-            if (multiline) {
+            if (_multiline) {
                 test = multilineTest;
             } else {
                 test = label => { multilineTest(label); e.Compare(context.Peek(0), CompareOp.Equal, nl, label); };

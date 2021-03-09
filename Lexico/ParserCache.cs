@@ -24,6 +24,12 @@ namespace Lexico
         public virtual int Priority => -10;
 
         /// <summary>
+        /// Flags that modify the parser produced by this attribute.
+        /// See <see cref="ParserFlags"/> for individual flags.
+        /// </summary>
+        public ParserFlags ParserFlags { get; set; }
+
+        /// <summary>
         /// Creates a Parser based on this attribute
         /// </summary>
         /// <param name="member">The Member (Field, Property or Type) the attribute was applied to</param>
@@ -41,8 +47,9 @@ namespace Lexico
         public virtual bool AddDefault(MemberInfo member) => false;
     }
 
-    internal class RecursiveParser : IParser
+    internal class RecursiveParser : ParserBase
     {
+        public RecursiveParser(IConfig config, ParserFlags flags) : base(config, flags){}
         private IParser? inner;
         public IParser Inner => inner ?? throw new InvalidOperationException("Circular parser dependency");
 
@@ -53,12 +60,9 @@ namespace Lexico
             this.inner = inner ?? throw new ArgumentNullException(nameof(inner));
         }
 
-        public Type OutputType => Inner.OutputType;
+        public override Type OutputType => Inner.OutputType;
 
-        public void Compile(Context context)
-        {
-            context.GetFeature<Recursive>().CallFromPlaceholder(Inner, context);
-        }
+        public override void Compile(Context context) => context.GetFeature<Recursive>().CallFromPlaceholder(Inner, context);
 
         public override string ToString() => inner == null ? "Placeholder" : (inner.ToString() + " (recursive)");
     }
@@ -92,7 +96,7 @@ namespace Lexico
             lock (parserStack) {
                 if (!cache.TryGetValue(member, out var parser)) {
                     if (parserStack.Contains(member)) {
-                        var placeholder = new RecursiveParser();
+                        var placeholder = new RecursiveParser(DefaultConfig.Instance, ParserFlags.None);
                         cache.Add(member, placeholder);
                         return placeholder;
                     } else if (member is Type t && t.IsGenericType && t.GetGenericTypeDefinition() == typeof(List<>)) {

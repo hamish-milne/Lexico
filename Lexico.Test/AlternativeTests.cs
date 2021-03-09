@@ -41,18 +41,18 @@ namespace Lexico.Test
         {
             if (passes)
             {
-                Assert.True(Lexico.TryParse(expression, out Truthy _, new ConsoleTrace()));
+                Assert.True(Lexico.TryParse(expression, out Truthy _, new ConsoleDeveloperTrace()));
             }
             else
             {
-                Assert.False(Lexico.TryParse(expression, out Truthy _, new ConsoleTrace()));
+                Assert.False(Lexico.TryParse(expression, out Truthy _, new ConsoleDeveloperTrace()));
             }
         }
 
         [Fact]
         public void BadExplicitAlternativeType()
         {
-            Assert.Throws<ArgumentException>(() => Lexico.Parse<TruthyWithInvalidAlternative>("true", new ConsoleTrace()));
+            Assert.Throws<ArgumentException>(() => Lexico.Parse<TruthyWithInvalidAlternative>("true", new ConsoleDeveloperTrace()));
         }
         
         [Theory]
@@ -71,11 +71,11 @@ namespace Lexico.Test
         {
             if (passes)
             {
-                Assert.True(Lexico.TryParse(expression, parseType, out _, new ConsoleTrace()));
+                Assert.True(Lexico.TryParse(expression, parseType, out _, new ConsoleDeveloperTrace()));
             }
             else
             {
-                Assert.False(Lexico.TryParse(expression, parseType, out _, new ConsoleTrace()));
+                Assert.False(Lexico.TryParse(expression, parseType, out _, new ConsoleDeveloperTrace()));
             }
         }
     }

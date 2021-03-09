@@ -61,6 +61,13 @@ namespace Lexico.Benchmarks
             var result = Lexico.Parse<JsonDocument>(JsonString);
             if (result.value == null) throw new Exception("Parsing failed");
         }
+        
+        [Benchmark]
+        public void LexicoJsonWithNoOpTrace()
+        {
+            var result = Lexico.Parse<JsonDocument>(JsonString, new NoTrace());
+            if (result.value == null) throw new Exception("Parsing failed");
+        }
 
         [Benchmark]
         public void NewtonsoftJsonConvert()

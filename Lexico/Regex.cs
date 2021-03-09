@@ -15,6 +15,6 @@ namespace Lexico
         public string Pattern { get; }
 
         public override IParser Create(MemberInfo member, IConfig config)
-            => RegexImpl.Regex.Parse(Pattern);
+            => RegexImpl.Regex.Parse(Pattern, config, ParserFlags);
     }
 }

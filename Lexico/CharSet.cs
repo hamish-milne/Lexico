@@ -17,7 +17,7 @@ namespace Lexico
 
         private readonly CharIntervalSet set;
 
-        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => new CharSet(set);
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => new CharSet(set, config, ParserFlags);
     }
 
     public class CharRangeAttribute : TermAttribute
@@ -35,7 +35,7 @@ namespace Lexico
 
         private readonly CharIntervalSet set;
 
-        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => new CharSet(set);
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => new CharSet(set, config, ParserFlags);
     }
 
     public class CharIntervalSet
@@ -141,23 +141,23 @@ namespace Lexico
         public override string ToString() => string.Join(",", intervals.Select(t => $"{t.Item1}-{t.Item2}"));
     }
 
-    public class CharSet : IParser
+    public class CharSet : ParserBase
     {
-        public CharSet(CharIntervalSet set) {
-            ranges = set.Intervals.ToArray();
+        public CharSet(CharIntervalSet set, IConfig config, ParserFlags flags) : base(config, flags) {
+            _ranges = set.Intervals.ToArray();
         }
 
-        private readonly (char start, char end)[] ranges;
+        private readonly (char start, char end)[] _ranges;
 
-        public Type OutputType => typeof(char);
+        public override Type OutputType => typeof(char);
 
-        public void Compile(Context context)
+        public override void Compile(Context context)
         {
             var e = context.Emitter;
             context.RequireSymbols(1);
             var success = e.Label();
             var c = context.Peek(0);
-            foreach (var (start, end) in ranges) {
+            foreach (var (start, end) in _ranges) {
                 if (start == end) {
                     e.Compare(c, CompareOp.Equal, start, success);
                 } else {
@@ -174,6 +174,6 @@ namespace Lexico
         }
 
         // TODO: Use single chars for ToString
-        public override string ToString() => string.Join(",", ranges.Select(t => $"{t.start}-{t.end}"));
+        public override string ToString() => string.Join(",", _ranges.Select(t => $"{t.start}-{t.end}"));
     }
 }

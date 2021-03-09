@@ -9,7 +9,7 @@ namespace Lexico
     public class EOLAttribute : TermAttribute
     {
         public override IParser Create(MemberInfo member, ChildParser child, IConfig config)
-            => EOLParser.Instance;
+            => new EOLParser(config, ParserFlags);
     }
 
     /// <summary>
@@ -17,15 +17,13 @@ namespace Lexico
     /// </summary>
     [EOL] public struct EOL {}
 
-    internal class EOLParser : IParser
+    internal class EOLParser : ParserBase
     {
-        private EOLParser() {}
+        public EOLParser(IConfig config, ParserFlags flags) : base(config, flags) {}
 
-        public static EOLParser Instance { get; } = new EOLParser();
+        public override Type OutputType => typeof(void);
 
-        public Type OutputType => typeof(void);
-
-        public void Compile(Context context)
+        public override void Compile(Context context)
         {
             var e = context.Emitter;
             var success = e.Label();

@@ -7,20 +7,18 @@ namespace Lexico
     {
         public override int Priority => 1;
 
-        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => CharParser.Instance;
+        public override IParser Create(MemberInfo member, ChildParser child, IConfig config) => new CharParser(config, ParserFlags);
 
         public override bool AddDefault(MemberInfo member) => member == typeof(char);
     }
 
-    public class CharParser : IParser
+    public class CharParser : ParserBase
     {
-        private CharParser() { }
+        public CharParser(IConfig config, ParserFlags flags) : base(config, flags) { }
 
-        public static CharParser Instance { get; } = new CharParser();
+        public override Type OutputType => typeof(char);
 
-        public Type OutputType => typeof(char);
-
-        public void Compile(Context context)
+        public override void Compile(Context context)
         {
             context.RequireSymbols(1);
             context.Advance(1);

@@ -23,7 +23,7 @@ namespace Lexico
             if (c is OptionalParser o) {
                 return o;
             }
-            return new OptionalParser(c);
+            return new OptionalParser(c, config, ParserFlags);
         }
 
         public override bool AddDefault(MemberInfo member)
@@ -36,21 +36,21 @@ namespace Lexico
         }
     }
 
-    internal class OptionalParser : IParser
+    internal class OptionalParser : ParserBase
     {
-        public OptionalParser(IParser child) {
-            this.child = child;
+        public OptionalParser(IParser child, IConfig config,  ParserFlags flags) : base(config, flags) {
+            Child = child;
         }
-        private readonly IParser child;
+        public readonly IParser Child;
 
-        public Type OutputType => child.OutputType; // TODO: Nullable<T> here?
+        public override Type OutputType => Child.OutputType; // TODO: Nullable<T> here?
 
-        public void Compile(Context context)
+        public override void Compile(Context context)
         {
             var e = context.Emitter;
             var savePoint = context.Save();
             var skip = context.Success == null ? e.Label() : null;
-            context.Child(child, null, context.Result, context.Success ?? skip, savePoint.label);
+            context.Child(Child, null, context.Result, context.Success ?? skip, savePoint.label);
             context.Restore(savePoint);
             if (context.CanWriteResult && context.Result != null) {
                 e.Copy(context.Result, e.Default(e.TypeOf(context.Result)));
@@ -61,6 +61,6 @@ namespace Lexico
             context.Succeed();
         }
 
-        public override string ToString() => $"{child}?";
+        public override string ToString() => $"{Child}?";
     }
 }

@@ -2,7 +2,7 @@ using Xunit.Abstractions;
 
 namespace Lexico.Test
 {
-    public sealed class XunitTrace : TextTrace
+    public sealed class XunitTrace : DeveloperTrace
     {
         private readonly ITestOutputHelper _outputHelper;
 

@@ -27,7 +27,7 @@ namespace Lexico.Test
         [Fact]
         public void RepeatTest()
         {
-            Assert.True(Lexico.TryParse<RepeatTestObj>("abcabcabc", out var outObj, new ConsoleTrace()));
+            Assert.True(Lexico.TryParse<RepeatTestObj>("abcabcabc", out var outObj, new ConsoleDeveloperTrace()));
             Assert.Equal(3, outObj.Items.Count);
         }
 
@@ -50,7 +50,7 @@ namespace Lexico.Test
         [Fact]
         public void ChoiceTest()
         {
-            Assert.True(Lexico.TryParse<ChoiceTestObj>("abcdef", out var outObj, new ConsoleTrace()));
+            Assert.True(Lexico.TryParse<ChoiceTestObj>("abcdef", out var outObj, new ConsoleDeveloperTrace()));
             Assert.Equal(2, outObj.Items.Count);
             Assert.IsType<Choice1>(outObj.Items[0]);
             Assert.IsType<Choice2>(outObj.Items[1]);
@@ -99,7 +99,7 @@ namespace Lexico.Test
         [Fact]
         public void ILRTest()
         {
-            Assert.True(Lexico.TryParse<Expression>("1+2*3", out var outObj, new ConsoleTrace()));
+            Assert.True(Lexico.TryParse<Expression>("1+2*3", out var outObj, new ConsoleDeveloperTrace()));
             Assert.Equal(7, outObj.Eval());
         }
 
@@ -110,7 +110,7 @@ namespace Lexico.Test
         [Fact]
         public void RegexTest()
         {
-            Assert.True(Lexico.TryParse<RegexTestObj>("abc012DEF", out var outObj, new ConsoleTrace{Verbose = true}));
+            Assert.True(Lexico.TryParse<RegexTestObj>("abc012DEF", out var outObj, new ConsoleDeveloperTrace{OutputBraces = true}));
             Assert.Equal("abc012DEF", outObj.str);
         }
 
@@ -129,7 +129,7 @@ namespace Lexico.Test
         [Fact]
         public void WhitespaceTest()
         {
-            Assert.True(Lexico.TryParse<WhitespaceTestObj>("  \n   \n \t   ", out var _, new ConsoleTrace{Verbose = true}));
+            Assert.True(Lexico.TryParse<WhitespaceTestObj>("  \n   \n \t   ", out var _, new ConsoleDeveloperTrace{OutputBraces = true}));
         }
 
         
