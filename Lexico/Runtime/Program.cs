@@ -151,7 +151,7 @@ namespace Lexico
             public void Dispose()
             {
                 if (parent.frames.Pop() != this) {
-                    throw new Exception("Frames must be disposd in order");
+                    throw new Exception("Frames must be disposed in order");
                 }
                 parent.pool.AddRange(allocated);
                 allocated.Clear();
@@ -658,7 +658,7 @@ namespace Lexico
                 }
                 return v;
             } else if (member is PropertyInfo prop) {
-                return Call(obj, prop.GetGetMethod());
+                return Call(obj, prop.GetGetMethod(true));
             } else {
                 throw new ArgumentException();
             }
@@ -790,7 +790,7 @@ namespace Lexico
                     rhs = fIdx
                 });
             } else if (member is PropertyInfo prop) {
-                Call(obj, prop.GetSetMethod(), value);
+                Call(obj, prop.GetSetMethod(true), value);
             } else {
                 throw new ArgumentException();
             }
