@@ -1,4 +1,3 @@
-using System.IO;
 using System.Reflection;
 using System.Linq;
 using System.Collections.Generic;
@@ -19,7 +18,7 @@ namespace Lexico
         public Expression UserObject { get; }
         public Expression? Cut { get; }
 
-        private delegate bool LocalParser<T>(ref T value);
+        private delegate (bool Success, T Result) LocalParser<T>(T value);
 
         private readonly List<Expression> statements = new List<Expression>();
         private readonly List<ParameterExpression> variables = new List<ParameterExpression>();
@@ -32,8 +31,6 @@ namespace Lexico
         private readonly CompileContext? parent;
         private readonly Expression? ilrStack;
         private readonly Expression? ilrPos;
-        private readonly Expression? byRefPosition;
-        private readonly Expression? byRefResult;
         private readonly Expression? trace;
         private readonly bool enableIlrCheck;
         private Expression? memo;
@@ -98,8 +95,6 @@ namespace Lexico
         {
             this.Success = onSuccess;
             this.Failure = onFail;
-            this.byRefPosition = position;
-            this.byRefResult = result;
             this.Position = Cache(position);
             this.Result = Cache(result);
             this.Length = PropertyOrField(text, nameof(string.Length));
@@ -154,11 +149,11 @@ namespace Lexico
             if (attr != null) {
                 flags |= attr.Value;
             }
-            var position = Parameter(typeof(int).MakeByRefType());
+            var position = Parameter(typeof(int));
             var text = Parameter(typeof(string));
             var onSuccess = Label();
             var onFail = Label();
-            var result = Parameter(parser.OutputType.MakeByRefType());
+            var result = Parameter(parser.OutputType);
             var traceParam = Parameter(typeof(ITrace));
             var userObject = Parameter(typeof(object));
             var context = new CompileContext(text, position, result, onSuccess, onFail,
@@ -170,7 +165,7 @@ namespace Lexico
                 context.Append(Call(context.memo, nameof(Memo.Init), Type.EmptyTypes));
             }
             context.Child(parser, null, context.Result, onSuccess, onFail, null);
-            var block = context.MakeFunctionBlock();
+            var block = context.MakeFunctionBlock(false, parser.OutputType);
             return Lambda(
                 typeof(Parser<>).MakeGenericType(parser.OutputType),
                 block,
@@ -189,14 +184,14 @@ namespace Lexico
                 recursionTargets.Add(child, placeholder);
 
                 // Since we're recursing, we need to compile a lambda for this parser
-                var tmpResult = Parameter(outType.MakeByRefType());
+                var tmpResult = Parameter(outType);
                 var tmpSuccess = Label();
                 var tmpFail = Label();
                 var childContext = new CompileContext(this, child, tmpResult, tmpSuccess, tmpFail, doIlrChecks, null, false);
                 child.Compile(childContext);
 
                 // Set the placeholder to the lambda we just built up
-                topLevel.Append(Assign(placeholder, Lambda(placeholder.Type, childContext.MakeFunctionBlock(), tmpResult)));
+                topLevel.Append(Assign(placeholder, Lambda(placeholder.Type, childContext.MakeFunctionBlock(true, outType), tmpResult)));
             }
 
             // Now we can call the result for the top level
@@ -208,13 +203,14 @@ namespace Lexico
         void CallRecursionTarget(IParser child, Expression? result, LabelTarget? onSuccess, LabelTarget onFail)
         {
             var recurse = recursionTargets[child];
-            var tmp = Cache(Default(GetOutputType(child)));
-            var r = Cache(Invoke(recurse, tmp));
-            statements.Add(IfThen(Not(r), Goto(onFail)));
+            var r = Cache(Invoke(recurse, result ?? Default(child.OutputType)));
+            var success = PropertyOrField(r, "Item1");
+            var resultValue = PropertyOrField(r, "Item2");
+            
+            statements.Add(IfThen(Not(success), Goto(onFail)));
             if (result != null && child.OutputType != typeof(void)) {
-                Append(Assign(result, tmp));
+                Append(Assign(result, resultValue));
             }
-            Release(tmp);
             Release(r);
             if (onSuccess != null) {
                 Append(Goto(onSuccess));
@@ -359,7 +355,7 @@ namespace Lexico
         private static readonly ConstructorInfo stringSegment =
             typeof(StringSegment).GetConstructor(new []{typeof(string), typeof(int), typeof(int)});
 
-        private BlockExpression MakeFunctionBlock()
+        private BlockExpression MakeFunctionBlock(bool isLocal, Type resultType)
         {
             if (wasUsed) {
                 throw new Exception();
@@ -368,47 +364,62 @@ namespace Lexico
             // TODO: Put trace stuff into general 'make block' function
             // Convert the gotos to a boolean return value
             var doTrace = trace != null && source != null && !(source is UnaryParser) && !source.Flags.HasFlag(ParserFlags.IgnoreInTrace);
-            var end = Label(typeof(bool));
-            var saveRefArgs = byRefResult == null ? (Expression)Empty()
-                : Block(Assign(byRefResult, Result), Assign(byRefPosition, Position));
+
+            var returnType = isLocal
+                    ? typeof(ValueTuple<,>).MakeGenericType(typeof(bool), resultType)
+                    : typeof(ValueTuple<,,>).MakeGenericType(typeof(bool), typeof(int), resultType);
+            
+            var returnConstructor = isLocal
+                ? returnType.GetConstructor(new[] {typeof(bool), resultType})
+                : returnType.GetConstructor(new[] {typeof(bool), typeof(int), resultType});
+            
+            var end = Label(returnType);
+
+            Expression MakeResultTuple(bool success) => isLocal
+                ? New(returnConstructor, Constant(success), Result)
+                : New(returnConstructor, Constant(success), Position, Result);
+            
             if (doTrace)
             {
                 var startPos = Variable(typeof(int), "startPos");
                 var sourceExpr = Constant(source, typeof(IParser));
                 var segmentExpr = New(stringSegment, String, startPos, Subtract(Position, startPos));
-                return Block(variables.Concat(new []{startPos}).Concat(variablePool), new Expression[]{
-                    Assign(startPos, Position),
-                    Call(trace, nameof(ITrace.Push), Type.EmptyTypes, sourceExpr,
-                        Constant(null, typeof(string))
-                    ),
-                }.Concat(statements).Concat(new Expression[]{
-                    Label(Success ?? throw new InvalidOperationException()),
-                    Call(trace, nameof(ITrace.Pop), Type.EmptyTypes, sourceExpr,
-                        Constant(true),
-                        Result == null ? (Expression)Constant(null) : Convert(Result, typeof(object)),
-                        segmentExpr
-                    ),
-                    saveRefArgs,
-                    Return(end, Constant(true)),
-                    Label(Failure),
-                    Call(trace, nameof(ITrace.Pop), Type.EmptyTypes, sourceExpr,
-                        Constant(false),
-                        Constant(null),
-                        segmentExpr
-                    ),
-                    saveRefArgs,
-                    Return(end, Constant(false)),
-                    Label(end, Constant(false))
-                }));
+                return Block(variables.Concat(new[] {startPos})
+                                      .Concat(variablePool),
+                    new Expression[]
+                        {
+                            Assign(startPos, Position),
+                            Call(trace, nameof(ITrace.Push), Type.EmptyTypes, sourceExpr,
+                                Constant(null, typeof(string))
+                            ),
+                        }.Concat(statements)
+                         .Concat(new Expression[]
+                          {
+                              Label(Success ?? throw new InvalidOperationException()),
+                              Call(trace, nameof(ITrace.Pop), Type.EmptyTypes, sourceExpr,
+                                  Constant(true),
+                                  Result == null
+                                      ? (Expression) Constant(null)
+                                      : Convert(Result, typeof(object)),
+                                  segmentExpr
+                              ),
+                              Return(end, MakeResultTuple(true)),
+                              Label(Failure),
+                              Call(trace, nameof(ITrace.Pop), Type.EmptyTypes, sourceExpr,
+                                  Constant(false),
+                                  Constant(null),
+                                  segmentExpr
+                              ),
+                              Return(end, MakeResultTuple(false)),
+                              Label(end, MakeResultTuple(false))
+                          }));
             }
             return Block(variables.Concat(variablePool), statements.Concat(new Expression[]{
                 Label(Success ?? throw new InvalidOperationException()),
-                saveRefArgs,
-                Return(end, Constant(true)),
+                Return(end, MakeResultTuple(true)),
                 Label(Failure),
-                saveRefArgs,
-                Return(end, Constant(false)),
-                Label(end, Constant(false))
+                Return(end, MakeResultTuple(false)),
+                Label(end, MakeResultTuple(false))
             }));
         }
 
