@@ -38,9 +38,9 @@ namespace Lexico
         public static bool TryParse<T>(string str, out T output, ITrace? trace = null, object? userObject = null)
         {
             var compiled = Compile(typeof(T), trace != null);
-            int position = 0;
-            output = default!;
-            return ((Parser<T>)compiled)(str, ref position, ref output, trace!, userObject);
+            var (success, _, value) = ((Parser<T>)compiled)(str, 0, default, trace, userObject);
+            output = value;
+            return success;
         }
 
         private static Delegate Compile(Type type, bool hasTrace)
@@ -57,10 +57,12 @@ namespace Lexico
         public static bool TryParse(string str, Type outputType, out object output, ITrace? trace = null, object? userObject = null)
         {
             var compiled = Compile(outputType, trace != null);
-            var args = new object[]{str, 0, null!, trace!, userObject!};
-            var result = (bool)compiled.DynamicInvoke(args);
-            output = args[2];
-            return result;
+            var resultType = compiled.Method.ReturnType;
+            var successField = resultType.GetField("Item1");
+            var resultField = resultType.GetField("Item3");
+            var resultTuple = compiled.DynamicInvoke(str, 0, null!, trace!, userObject!);
+            output = resultField.GetValue(resultTuple);
+            return (bool)successField.GetValue(resultTuple);
         }
 
         private static readonly ConcurrentDictionary<(Type, bool), Delegate> compilerCache

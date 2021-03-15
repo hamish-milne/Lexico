@@ -55,5 +55,5 @@ namespace Lexico
                 new []{index == 0 ? context.Position : Add(context.Position, Constant(index))});
     }
 
-    internal delegate bool Parser<T>(string input, ref int position, ref T value, ITrace trace, object? userObject);
+    internal delegate (bool Success, int Position, T Value) Parser<T>(string input, int position, T value, ITrace? trace, object? userObject);
 }
