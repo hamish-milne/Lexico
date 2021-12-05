@@ -1,4 +1,4 @@
-![Nuget](https://img.shields.io/nuget/v/Lexico?style=for-the-badge)
+![Nuget](https://img.shields.io/nuget/v/Lexico?logo=nuget)
 
 # Getting started
 
