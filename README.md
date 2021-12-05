@@ -1,4 +1,10 @@
+![Nuget](https://img.shields.io/nuget/v/Lexico?style=for-the-badge)
+
 # Getting started
+
+## Installation
+
+Head over to the [NuGet listing](https://www.nuget.org/packages/Lexico/) and install the package version you want in your project.
 
 ## Introduction
 
