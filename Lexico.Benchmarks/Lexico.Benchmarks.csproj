@@ -10,7 +10,7 @@
       <PackageReference Include="bsn.GoldParser" Version="2.0.79" />
       <PackageReference Include="Eto.Parse" Version="1.4.0" />
       <PackageReference Include="Irony" Version="1.1.0" />
-      <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+      <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
       <PackageReference Include="ServiceStack.Text" Version="5.8.0" />
       <PackageReference Include="Sprache" Version="2.2.0" />
       <PackageReference Include="Superpower" Version="2.3.0" />
